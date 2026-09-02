@@ -20,14 +20,12 @@ Chargez un fichier Excel contenant au minimum :
 - Date
 - Close
 
-L'application calcule :
-- SMA 20
-- SMA 50
-- SMA 200
-- RSI
-- MACD
-- Supports
-- Résistances
+Exemple :
+
+| Date | Close |
+|--------|--------|
+| 01/01/2025 | 15000 |
+| 02/01/2025 | 15100 |
 """)
 
 uploaded_file = st.file_uploader(
@@ -41,72 +39,82 @@ if uploaded_file is not None:
 
         df = pd.read_excel(uploaded_file)
 
-        st.success("Fichier chargé avec succès")
+        # Nettoyage des noms de colonnes
+        df.columns = df.columns.str.strip()
 
+        # Vérification des colonnes
         if "Date" not in df.columns:
-            st.error("Colonne 'Date' absente")
+            st.error("Colonne Date introuvable")
             st.stop()
 
         if "Close" not in df.columns:
-            st.error("Colonne 'Close' absente")
+            st.error("Colonne Close introuvable")
+            st.write("Colonnes détectées :", df.columns.tolist())
             st.stop()
 
-        df["Date"] = pd.to_datetime(df["Date"])
+        # Conversion Date
+        df["Date"] = pd.to_datetime(
+            df["Date"],
+            errors="coerce"
+        )
 
-        if df["Close"].dtype == object:
+        # Conversion robuste de Close
+        df["Close"] = (
+            df["Close"]
+            .astype(str)
+            .str.replace("\xa0", "", regex=False)
+            .str.replace(" ", "", regex=False)
+            .str.replace(",", ".", regex=False)
+        )
 
-            df["Close"] = (
-                df["Close"]
-                .astype(str)
-                .str.replace(" ", "")
-                .str.replace(",", ".")
-            )
+        df["Close"] = pd.to_numeric(
+            df["Close"],
+            errors="coerce"
+        )
 
-            df["Close"] = pd.to_numeric(df["Close"])
+        # Suppression des lignes invalides
+        df = df.dropna(
+            subset=["Date", "Close"]
+        )
 
-        df = df.sort_values("Date").reset_index(drop=True)
+        df = df.sort_values(
+            "Date"
+        ).reset_index(drop=True)
 
-        # =====================
-        # MOYENNES MOBILES
-        # =====================
+        st.success("Fichier chargé avec succès")
+
+        # ====================
+        # Indicateurs techniques
+        # ====================
 
         df["SMA20"] = ta.trend.sma_indicator(
-            df["Close"],
+            close=df["Close"],
             window=20
         )
 
         df["SMA50"] = ta.trend.sma_indicator(
-            df["Close"],
+            close=df["Close"],
             window=50
         )
 
         df["SMA200"] = ta.trend.sma_indicator(
-            df["Close"],
+            close=df["Close"],
             window=200
         )
 
-        # =====================
-        # RSI
-        # =====================
-
         df["RSI"] = ta.momentum.rsi(
-            df["Close"],
+            close=df["Close"],
             window=14
         )
-
-        # =====================
-        # MACD
-        # =====================
 
         macd = ta.trend.MACD(df["Close"])
 
         df["MACD"] = macd.macd()
+        df["SIGNAL"] = macd.macd_signal()
 
-        df["Signal"] = macd.macd_signal()
-
-        # =====================
-        # SUPPORTS / RESISTANCES
-        # =====================
+        # ====================
+        # Supports / Résistances
+        # ====================
 
         prices = df["Close"].values
 
@@ -125,9 +133,9 @@ if uploaded_file is not None:
         supports = prices[minima]
         resistances = prices[maxima]
 
-        # =====================
-        # GRAPHIQUE PRINCIPAL
-        # =====================
+        # ====================
+        # Graphique principal
+        # ====================
 
         fig = go.Figure()
 
@@ -135,8 +143,8 @@ if uploaded_file is not None:
             go.Scatter(
                 x=df["Date"],
                 y=df["Close"],
-                name="Cours",
-                line=dict(color="blue")
+                mode="lines",
+                name="Cours"
             )
         )
 
@@ -144,6 +152,7 @@ if uploaded_file is not None:
             go.Scatter(
                 x=df["Date"],
                 y=df["SMA20"],
+                mode="lines",
                 name="SMA20"
             )
         )
@@ -152,6 +161,7 @@ if uploaded_file is not None:
             go.Scatter(
                 x=df["Date"],
                 y=df["SMA50"],
+                mode="lines",
                 name="SMA50"
             )
         )
@@ -160,24 +170,25 @@ if uploaded_file is not None:
             go.Scatter(
                 x=df["Date"],
                 y=df["SMA200"],
+                mode="lines",
                 name="SMA200"
             )
         )
 
-        for support in supports:
+        for s in supports:
 
             fig.add_hline(
-                y=support,
-                line_dash="dot",
-                line_color="green"
+                y=float(s),
+                line_color="green",
+                line_dash="dot"
             )
 
-        for resistance in resistances:
+        for r in resistances:
 
             fig.add_hline(
-                y=resistance,
-                line_dash="dash",
-                line_color="red"
+                y=float(r),
+                line_color="red",
+                line_dash="dash"
             )
 
         fig.update_layout(
@@ -190,15 +201,15 @@ if uploaded_file is not None:
             use_container_width=True
         )
 
-        # =====================
+        # ====================
         # RSI
-        # =====================
+        # ====================
 
         st.subheader("RSI")
 
-        rsi_fig = go.Figure()
+        fig_rsi = go.Figure()
 
-        rsi_fig.add_trace(
+        fig_rsi.add_trace(
             go.Scatter(
                 x=df["Date"],
                 y=df["RSI"],
@@ -206,24 +217,24 @@ if uploaded_file is not None:
             )
         )
 
-        rsi_fig.add_hline(y=70)
+        fig_rsi.add_hline(y=70)
 
-        rsi_fig.add_hline(y=30)
+        fig_rsi.add_hline(y=30)
 
         st.plotly_chart(
-            rsi_fig,
+            fig_rsi,
             use_container_width=True
         )
 
-        # =====================
+        # ====================
         # MACD
-        # =====================
+        # ====================
 
         st.subheader("MACD")
 
-        macd_fig = go.Figure()
+        fig_macd = go.Figure()
 
-        macd_fig.add_trace(
+        fig_macd.add_trace(
             go.Scatter(
                 x=df["Date"],
                 y=df["MACD"],
@@ -231,23 +242,29 @@ if uploaded_file is not None:
             )
         )
 
-        macd_fig.add_trace(
+        fig_macd.add_trace(
             go.Scatter(
                 x=df["Date"],
-                y=df["Signal"],
+                y=df["SIGNAL"],
                 name="Signal"
             )
         )
 
         st.plotly_chart(
-            macd_fig,
+            fig_macd,
             use_container_width=True
         )
 
+        # ====================
+        # Tableau
+        # ====================
+
         st.subheader("Données")
 
-        st.dataframe(df)
+        st.dataframe(df.tail(50))
 
     except Exception as e:
+
+        st.error("Erreur détectée")
 
         st.exception(e)
