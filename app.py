@@ -19,12 +19,12 @@ st.set_page_config(
 st.title("📈 Analyse Chartiste Automatique")
 
 st.markdown("""
-Chargez un fichier Excel contenant :
+Chargez un fichier Excel contenant au minimum :
 
 - Date
 - Close
 
-L'application calcule automatiquement :
+L'application génère :
 
 ✅ SMA20
 
@@ -36,11 +36,7 @@ L'application calcule automatiquement :
 
 ✅ MACD
 
-✅ Supports
-
-✅ Résistances
-
-✅ Analyse commentée
+✅ Analyse automatique
 """)
 
 # =====================================================
@@ -48,7 +44,7 @@ L'application calcule automatiquement :
 # =====================================================
 
 uploaded_file = st.file_uploader(
-    "Importer le fichier Excel",
+    "Importer un fichier Excel",
     type=["xlsx"]
 )
 
@@ -61,16 +57,16 @@ if uploaded_file is not None:
         df.columns = df.columns.str.strip()
 
         if "Date" not in df.columns:
-            st.error("Colonne Date introuvable.")
+            st.error("Colonne Date introuvable")
             st.stop()
 
         if "Close" not in df.columns:
-            st.error("Colonne Close introuvable.")
+            st.error("Colonne Close introuvable")
             st.write(df.columns.tolist())
             st.stop()
 
         # =====================================================
-        # PREPARATION DONNEES
+        # PREPARATION DES DONNEES
         # =====================================================
 
         df["Date"] = pd.to_datetime(
@@ -102,10 +98,6 @@ if uploaded_file is not None:
         )
 
         st.success("Fichier chargé avec succès")
-
-        # =====================================================
-        # CONTROLE DES DATES
-        # =====================================================
 
         st.info(
             f"Dernière date disponible : {df['Date'].max().strftime('%d/%m/%Y')}"
@@ -160,7 +152,6 @@ if uploaded_file is not None:
         )[0]
 
         supports = prices[minima]
-
         resistances = prices[maxima]
 
         # =====================================================
@@ -201,11 +192,6 @@ if uploaded_file is not None:
             )
         )
 
-        fig.update_layout(
-            title="Analyse Chartiste",
-            height=700
-        )
-
         st.plotly_chart(
             fig,
             use_container_width=True
@@ -228,7 +214,6 @@ if uploaded_file is not None:
         )
 
         fig_rsi.add_hline(y=70)
-
         fig_rsi.add_hline(y=30)
 
         st.plotly_chart(
@@ -256,7 +241,7 @@ if uploaded_file is not None:
             go.Scatter(
                 x=df["Date"],
                 y=df["SIGNAL"],
-                name="SIGNAL"
+                name="Signal"
             )
         )
 
@@ -270,79 +255,42 @@ if uploaded_file is not None:
         # =====================================================
 
         dernier_cours = df["Close"].iloc[-1]
-
         sma20 = df["SMA20"].iloc[-1]
-
         sma50 = df["SMA50"].iloc[-1]
-
         rsi = df["RSI"].iloc[-1]
-
         macd = df["MACD"].iloc[-1]
-
         signal = df["SIGNAL"].iloc[-1]
 
         st.header("🧠 Analyse Technique")
 
         commentaire = f"""
-Le MASI clôture à **{dernier_cours:,.2f}** points.
+Le dernier cours est de **{dernier_cours:,.2f}** points.
 
-La SMA20 est de **{sma20:,.2f}**.
+SMA20 : **{sma20:,.2f}**
 
-La SMA50 est de **{sma50:,.2f}**.
+SMA50 : **{sma50:,.2f}**
 
-Le RSI est de **{rsi:.2f}**.
+RSI : **{rsi:.2f}**
 
-Le MACD est de **{macd:.2f}**.
+MACD : **{macd:.2f}**
 """
 
         if sma20 > sma50:
-
-            commentaire += """
-
-✅ La dynamique de court terme reste haussière.
-"""
-
+            commentaire += "\n\n✅ Tendance court terme haussière."
         else:
-
-            commentaire += """
-
-⚠️ La dynamique de court terme reste baissière.
-"""
+            commentaire += "\n\n⚠️ Tendance court terme baissière."
 
         if rsi > 70:
-
-            commentaire += """
-
-Le marché est actuellement en situation de surachat.
-"""
-
+            commentaire += "\n\nMarché en surachat."
         elif rsi < 30:
-
-            commentaire += """
-
-Le marché est actuellement en situation de survente.
-"""
-
+            commentaire += "\n\nMarché en survente."
         else:
-
-            commentaire += """
-
-Le RSI évolue dans une zone neutre.
-"""
+            commentaire += "\n\nRSI en zone neutre."
 
         if macd > signal:
-
-            commentaire += """
-
-Le momentum reste positif.
-"""
-
+            commentaire += "\n\nMomentum positif."
         else:
-
-            commentaire += """
-
-Le momentum montre un ralentissement.
-"""
+            commentaire += "\n\nMomentum en ralentissement."
 
         st.info(commentaire)
 
@@ -358,4 +306,34 @@ Le momentum montre un ralentissement.
                 "ACHAT / CONSERVATION"
             )
 
-      
+        elif sma20 < sma50 and macd < signal:
+
+            st.error(
+                "VIGILANCE"
+            )
+
+        else:
+
+            st.warning(
+                "NEUTRE : marché en consolidation."
+            )
+
+        # =====================================================
+        # DONNEES
+        # =====================================================
+
+        st.subheader("Données")
+
+        st.dataframe(
+            df.sort_values(
+                "Date",
+                ascending=False
+            ).head(50),
+            use_container_width=True
+        )
+
+    except Exception as e:
+
+        st.error("Erreur détectée")
+
+        st.exception(e) 
