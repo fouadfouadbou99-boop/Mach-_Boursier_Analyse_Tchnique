@@ -63,7 +63,7 @@ if uploaded_file is not None:
             st.write(df.columns.tolist())
             st.stop()
 
-        # =====================================================
+                # =====================================================
         # PREPARATION DONNEES
         # =====================================================
 
@@ -73,15 +73,15 @@ if uploaded_file is not None:
         )
 
         df["Close"] = (
-    df["Close"]
-    .astype(str)
-    .str.replace("\xa0", "", regex=False)
-    .str.replace(" ", "", regex=False)
-)
+            df["Close"]
+            .astype(str)
+            .str.replace("\xa0", "", regex=False)
+            .str.replace(" ", "", regex=False)
+        )
 
-df["Close"] = pd.to_numeric(
-    df["Close"],
-    errors="coerce"
+        df["Close"] = pd.to_numeric(
+            df["Close"],
+            errors="coerce"
         )
 
         df = df.dropna(
@@ -93,7 +93,6 @@ df["Close"] = pd.to_numeric(
         ).reset_index(drop=True)
 
         st.success("Fichier chargé avec succès")
-
         # =====================================================
         # INDICATEURS TECHNIQUES
         # =====================================================
