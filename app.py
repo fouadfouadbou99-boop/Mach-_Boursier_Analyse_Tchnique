@@ -157,7 +157,7 @@ if uploaded_file is not None:
                 y=df["Close"],
                 name="Cours"
             )
-        )
+ )
 
         fig.add_trace(
             go.Scatter(
