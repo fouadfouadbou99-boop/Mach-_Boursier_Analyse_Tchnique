@@ -73,16 +73,15 @@ if uploaded_file is not None:
         )
 
         df["Close"] = (
-            df["Close"]
-            .astype(str)
-            .str.replace("\xa0", "", regex=False)
-            .str.replace(" ", "", regex=False)
-            .str.replace(",", ".", regex=False)
-        )
+    df["Close"]
+    .astype(str)
+    .str.replace("\xa0", "", regex=False)
+    .str.replace(" ", "", regex=False)
+)
 
-        df["Close"] = pd.to_numeric(
-            df["Close"],
-            errors="coerce"
+df["Close"] = pd.to_numeric(
+    df["Close"],
+    errors="coerce"
         )
 
         df = df.dropna(
