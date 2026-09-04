@@ -264,4 +264,4 @@ Le marché se situe en zone de surachat.
 
 """
         elif rsi < 30:
-            commentaire
+            commentaire =
