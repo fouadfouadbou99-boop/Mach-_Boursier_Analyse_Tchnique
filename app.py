@@ -77,6 +77,7 @@ if uploaded_file is not None:
             .astype(str)
             .str.replace("\xa0", "", regex=False)
             .str.replace(" ", "", regex=False)
+            .str.replace(",", ".", regex=False)
         )
 
         df["Close"] = pd.to_numeric(
@@ -93,6 +94,7 @@ if uploaded_file is not None:
         ).reset_index(drop=True)
 
         st.success("Fichier chargé avec succès")
+
         # =====================================================
         # INDICATEURS TECHNIQUES
         # =====================================================
@@ -155,7 +157,7 @@ if uploaded_file is not None:
                 y=df["Close"],
                 name="Cours"
             )
- )
+        )
 
         fig.add_trace(
             go.Scatter(
