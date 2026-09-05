@@ -1,5 +1,6 @@
-import ta
+import pandas as pd
 import numpy as np
+import ta
 
 def add_indicators(df):
 
