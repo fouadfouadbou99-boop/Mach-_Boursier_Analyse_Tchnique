@@ -65,3 +65,9 @@ def add_indicators(df):
     )
 
     return df
+st.write(df.tail(1)[[
+    "Date",
+    "RSI",
+    "MACD",
+    "Signal"
+]])
