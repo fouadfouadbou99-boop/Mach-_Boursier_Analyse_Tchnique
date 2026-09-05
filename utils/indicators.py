@@ -2,57 +2,101 @@ import pandas as pd
 import numpy as np
 import ta
 
+
 def add_indicators(df):
 
-    # ==========================
+    # =====================================================
     # MOYENNES MOBILES
-    # ==========================
+    # =====================================================
 
-    df["SMA20"] = ta.trend.sma_indicator(df["Close"], 20)
+    df["SMA20"] = ta.trend.sma_indicator(
+        df["Close"],
+        window=20
+    )
 
-    df["SMA50"] = ta.trend.sma_indicator(df["Close"], 50)
+    df["SMA50"] = ta.trend.sma_indicator(
+        df["Close"],
+        window=50
+    )
 
-    df["SMA200"] = ta.trend.sma_indicator(df["Close"], 200)
+    df["SMA200"] = ta.trend.sma_indicator(
+        df["Close"],
+        window=200
+    )
 
-    # ==========================
-    # RSI WILDER (COMME EXCEL)
-    # ==========================
+    # =====================================================
+    # PREPARATION RSI
+    # =====================================================
 
     delta = df["Close"].diff()
 
-    df["Gain"] = np.where(delta > 0, delta, 0)
+    gain = delta.clip(lower=0)
 
-    df["Perte"] = np.where(delta < 0, -delta, 0)
+    loss = -delta.clip(upper=0)
 
-    avg_gain = pd.Series(df["Gain"]).ewm(
-        alpha=1/14,
-        adjust=False
-    ).mean()
+    # =====================================================
+    # RSI TA
+    # =====================================================
 
-    avg_loss = pd.Series(df["Perte"]).ewm(
-        alpha=1/14,
-        adjust=False
-    ).mean()
-
-    rs = avg_gain / avg_loss
-
-    df["RSI"] = np.where(
-        (avg_gain == 0) & (avg_loss == 0),
-        50,
-        np.where(
-            avg_loss == 0,
-            100,
-            np.where(
-                avg_gain == 0,
-                0,
-                100 - (100 / (1 + rs))
-            )
-        )
+    df["RSI_TA"] = ta.momentum.rsi(
+        close=df["Close"],
+        window=14
     )
 
-    # ==========================
+    # =====================================================
+    # RSI WILDER
+    # =====================================================
+
+    avg_gain_wilder = gain.ewm(
+        alpha=1 / 14,
+        adjust=False
+    ).mean()
+
+    avg_loss_wilder = loss.ewm(
+        alpha=1 / 14,
+        adjust=False
+    ).mean()
+
+    rs_wilder = avg_gain_wilder / avg_loss_wilder
+
+    df["RSI_WILDER"] = (
+        100 - (100 / (1 + rs_wilder))
+    )
+
+    # =====================================================
+    # RSI SMA
+    # =====================================================
+
+    avg_gain_sma = gain.rolling(
+        window=14
+    ).mean()
+
+    avg_loss_sma = loss.rolling(
+        window=14
+    ).mean()
+
+    rs_sma = avg_gain_sma / avg_loss_sma
+
+    df["RSI_SMA"] = (
+        100 - (100 / (1 + rs_sma))
+    )
+
+    # =====================================================
+    # CHOIX DU RSI UTILISE
+    # =====================================================
+
+    # 1 = RSI bibliothèque ta
+    # df["RSI"] = df["RSI_TA"]
+
+    # 2 = RSI Wilder
+    df["RSI"] = df["RSI_WILDER"]
+
+    # 3 = RSI SMA
+    # df["RSI"] = df["RSI_SMA"]
+
+    # =====================================================
     # MACD
-    # ==========================
+    # =====================================================
 
     macd = ta.trend.MACD(df["Close"])
 
@@ -66,14 +110,32 @@ def add_indicators(df):
     )
 
     return df
-st.write("Dernière ligne calculée")
+    st.subheader("Comparaison des RSI")
 
 st.dataframe(
-    df[[
-        "Date",
-        "Close",
-        "RSI",
-        "MACD",
-        "MACD_SIGNAL"
-    ]].tail(1)
+    df[
+        [
+            "Date",
+            "Close",
+            "RSI_TA",
+            "RSI_WILDER",
+            "RSI_SMA"
+        ]
+    ].tail(10),
+    use_container_width=True
+)
+
+st.write(
+    "RSI_TA :",
+    round(df["RSI_TA"].iloc[-1], 2)
+)
+
+st.write(
+    "RSI_WILDER :",
+    round(df["RSI_WILDER"].iloc[-1], 2)
+)
+
+st.write(
+    "RSI_SMA :",
+    round(df["RSI_SMA"].iloc[-1], 2)
 )
