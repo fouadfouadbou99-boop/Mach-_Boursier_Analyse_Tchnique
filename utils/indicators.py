@@ -17,3 +17,10 @@ def add_indicators(df):
     df["MACD_SIGNAL"] = macd.macd_signal()
 
     return df
+st.write(df.tail(5)[[
+    "Date",
+    "Close",
+    "RSI",
+    "MACD",
+    "MACD_SIGNAL"
+]])
