@@ -65,9 +65,14 @@ def add_indicators(df):
     )
 
     return df
-st.write(df.tail(1)[[
-    "Date",
-    "RSI",
-    "MACD",
-    "Signal"
-]])
+st.write("Dernière ligne calculée")
+
+st.dataframe(
+    df[[
+        "Date",
+        "Close",
+        "RSI",
+        "MACD",
+        "MACD_SIGNAL"
+    ]].tail(1)
+)
