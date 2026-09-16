@@ -163,6 +163,8 @@ def calculate_score(df):
 
 def run_backtest(df):
 
+  def run_backtest(df):
+
     buy_signal = (
         (df["SMA20"] > df["SMA50"])
         &
@@ -187,11 +189,13 @@ def run_backtest(df):
 
         price = df["Close"].iloc[i]
 
-        if (not position) and buy_signal.ilocposition = True
+        if (not position) and buy_signal.iloc[i]:
+            position = True
             entry_price = price
 
-        elif position and sell_signal.ilocperf = (
-                (price - entry_price)
+ ion and sell_signal.iloc[i]:
+
+                   (price - entry_price)
                 / entry_price
             ) * 100
 
