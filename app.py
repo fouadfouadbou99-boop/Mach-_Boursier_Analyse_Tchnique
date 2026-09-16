@@ -164,14 +164,18 @@ def calculate_score(df):
 def run_backtest(df):
 
     buy_signal = (
-        (df["SMA20"] > df["SMA50"]) &
-        (df["MACD"] > df["SIGNAL"]) &
+        (df["SMA20"] > df["SMA50"])
+        &
+        (df["MACD"] > df["SIGNAL"])
+        &
         (df["RSI"] > 50)
     )
 
     sell_signal = (
-        (df["SMA20"] < df["SMA50"]) |
-        (df["MACD"] < df["SIGNAL"]) |
+        (df["SMA20"] < df["SMA50"])
+        |
+        (df["MACD"] < df["SIGNAL"])
+        |
         (df["RSI"] < 45)
     )
 
@@ -186,13 +190,12 @@ def run_backtest(df):
         if (not position) and buy_signal.iloc[i]:
 
             position = True
-            entry_price = price
+  ice = price
 
-        elif positionloc[i]:
+        elif position and sell_signal.iloc[i]:
 
             perf = (
-     - entry_price)
-                / entry_price
+                (price              / entry_price
             ) * 100
 
             trades.append(perf)
