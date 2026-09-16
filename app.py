@@ -7,737 +7,397 @@ import ta
 from io import BytesIO
 from scipy.signal import argrelextrema
 
-# ====================================================
-# CONFIGURATION
-# ====================================================
+# =====================================================
+# CONFIG
+# =====================================================
 
 st.set_page_config(
-    page_title="MASI Pro V3",
+    page_title="MASI Pro V4",
     page_icon="📈",
     layout="wide"
 )
 
-st.title("📈 MASI Pro V3")
-st.markdown("Analyse Technique Automatique du MASI")
+st.title("📈 MASI Pro V4")
 
-# ====================================================
-# FONCTIONS
-# ====================================================
+# =====================================================
+# CACHE
+# =====================================================
 
-def filtrer_niveaux(levels, seuil=0.01):
+@st.cache_data
+def load_data(file):
 
-    niveaux = []
+    df = pd.read_excel(
+        file,
+        sheet_name="Data_masi"
+    )
 
-    for lvl in sorted(levels):
+    df.columns = df.columns.str.strip()
 
-        lvl = float(lvl)
+    df["Date"] = pd.to_datetime(
+        df["Date"],
+        errors="coerce"
+    )
 
-        if not niveaux:
-            niveaux.append(lvl)
+    df["Close"] = pd.to_numeric(
+        df["Close"],
+        errors="coerce"
+    )
 
-        elif abs(lvl - niveaux[-1]) / niveaux[-1] > seuil:
-            niveaux.append(lvl)
+    df = (
+        df
+        .dropna()
+        .sort_values("Date")
+        .reset_index(drop=True)
+    )
 
-    return niveaux
+    return df
 
 
-def calculer_score(
-        close,
-        sma20,
-        sma50,
-        sma200,
-        rsi,
-        macd,
-        signal,
-        histo,
-        vol20,
-        position):
+# =====================================================
+# INDICATEURS
+# =====================================================
+
+def add_indicators(df):
+
+    df["SMA20"] = ta.trend.sma_indicator(
+        df["Close"],
+        20
+    )
+
+    df["SMA50"] = ta.trend.sma_indicator(
+        df["Close"],
+        50
+    )
+
+    df["SMA200"] = ta.trend.sma_indicator(
+        df["Close"],
+        200
+    )
+
+    df["RSI"] = ta.momentum.rsi(
+        df["Close"],
+        14
+    )
+
+    macd = ta.trend.MACD(df["Close"])
+
+    df["MACD"] = macd.macd()
+
+    df["SIGNAL"] = (
+        macd.macd_signal()
+    )
+
+    df["HISTO"] = (
+        df["MACD"]
+        - df["SIGNAL"]
+    )
+
+    bb = ta.volatility.BollingerBands(
+        df["Close"],
+        20,
+        2
+    )
+
+    df["BB_UP"] = (
+        bb.bollinger_hband()
+    )
+
+    df["BB_LOW"] = (
+        bb.bollinger_lband()
+    )
+
+    df["RET"] = np.log(
+        df["Close"]
+        / df["Close"].shift(1)
+    )
+
+    df["VOL20"] = (
+        df["RET"]
+        .rolling(20)
+        .std()
+        * np.sqrt(252)
+    )
+
+    return df
+
+
+# =====================================================
+# SUPPORTS
+# =====================================================
+
+def detect_sr(df):
+
+    prices = df["Close"].values
+
+    mins = argrelextrema(
+        prices,
+        np.less,
+        order=5
+    )[0]
+
+    maxs = argrelextrema(
+        prices,
+        np.greater,
+        order=5
+    )[0]
+
+    supports = prices[mins]
+    resistances = prices[maxs]
+
+    return supports, resistances
+
+
+# =====================================================
+# SCORE
+# =====================================================
+
+def compute_score(df):
+
+    last = df.iloc[-1]
 
     score = 0
-    commentaires = []
+    comments = []
 
-    # Long terme
-
-    if not np.isnan(sma200):
-
-        if close > sma200:
-            score += 20
-            commentaires.append(
-                "✅ Cours supérieur à SMA200."
-            )
-
-        else:
-            commentaires.append(
-                "❌ Cours sous SMA200."
-            )
-
-        if sma50 > sma200:
-            score += 15
-            commentaires.append(
-                "✅ SMA50 > SMA200."
-            )
-
-        else:
-            commentaires.append(
-                "❌ SMA50 < SMA200."
-            )
-
-    # Court terme
-
-    if sma20 > sma50:
-        score += 10
-        commentaires.append(
-            "✅ SMA20 > SMA50."
+    if last["Close"] > last["SMA200"]:
+        score += 20
+        comments.append(
+            "✅ Cours > SMA200"
         )
 
-    # MACD
-
-    if macd > signal:
+    if last["SMA50"] > last["SMA200"]:
         score += 15
-        commentaires.append(
-            "✅ MACD haussier."
+        comments.append(
+            "✅ SMA50 > SMA200"
         )
 
-    if histo > 0:
-        score += 5
-
-    # RSI
-
-    if 45 <= rsi <= 65:
-        score += 15
-        commentaires.append(
-            f"✅ RSI équilibré ({rsi:.1f})."
+    if last["SMA20"] > last["SMA50"]:
+        score += 10
+        comments.append(
+            "✅ SMA20 > SMA50"
         )
 
-    elif 35 <= rsi < 45:
-        score += 10
+    if last["MACD"] > last["SIGNAL"]:
+        score += 15
+        comments.append(
+            "✅ MACD haussier"
+        )
 
-    elif rsi < 35:
-        score += 5
-
-    # Range
-
-    if position > 70:
+    if 45 <= last["RSI"] <= 65:
         score += 15
 
-    elif position > 50:
+    if last["VOL20"] < 0.20:
         score += 10
 
-    elif position > 30:
-        score += 5
+    golden = (
+        last["SMA50"]
+        > last["SMA200"]
+    )
 
-    # Volatilité
-
-    if vol20 < 0.15:
+    if golden:
         score += 10
 
-    elif vol20 < 0.25:
-        score += 5
-
-    return score, commentaires
+    return score, comments
 
 
-def opinion(score):
+# =====================================================
+# BACKTEST
+# =====================================================
 
-    if score >= 80:
-        return "🟢 ACHAT FORT"
+def run_backtest(df):
 
-    if score >= 65:
-        return "✅ ACHAT"
+    buy = (
+        (df["SMA20"] > df["SMA50"])
+        &
+        (df["MACD"] > df["SIGNAL"])
+        &
+        (df["RSI"] > 50)
+    )
 
-    if score >= 50:
-        return "🔵 CONSERVATION"
+    sell = (
+        (df["SMA20"] < df["SMA50"])
+        |
+        (df["MACD"] < df["SIGNAL"])
+        |
+        (df["RSI"] < 45)
+    )
 
-    if score >= 35:
-        return "🟠 VIGILANCE"
+    position = 0
+    entry = 0
 
-    return "🔴 VENTE"
+    trades = []
 
+    for i in range(len(df)):
 
-def rapport_technique(
-        close,
-        score,
-        avis,
-        rsi,
-        macd,
-        signal,
-        sma20,
-        sma50,
-        sma200,
-        support,
-        resistance):
+        price = df["Close"].iloc[i]
 
-    texte = f"""
-RAPPORT TECHNIQUE MASI
+        if position == 0 and buy.ilocposition = 1
+            entry = price
 
-Date : {pd.Timestamp.now():%d/%m/%Y}
+        elif position == 1 and sell.ilocperf = (
+                (price - entry)
+                / entry
+            ) * 100
 
-------------------------------------
+            trades.append(perf)
 
-Cours actuel : {close:,.2f}
+            position = 0
 
-Score technique : {score}/100
-
-Opinion : {avis}
-
-------------------------------------
-
-TENDANCE
-
-Court terme :
-{'Haussière' if sma20 > sma50 else 'Baissière'}
-
-Moyen terme :
-{'Haussière' if sma50 > sma200 else 'Baissière'}
-
-Long terme :
-{'Haussière' if close > sma200 else 'Baissière'}
-
-------------------------------------
-
-MOMENTUM
-
-RSI : {rsi:.2f}
-
-MACD : {macd:.2f}
-
-Signal : {signal:.2f}
-
-------------------------------------
-
-SUPPORT PROCHE
-
-{support}
-
-RESISTANCE PROCHE
-
-{resistance}
-
-------------------------------------
-
-CONCLUSION
-
-{avis}
-"""
-
-    return texte
+    return trades
 
 
-# ====================================================
-# CHARGEMENT
-# ====================================================
+# =====================================================
+# LOAD FILE
+# =====================================================
 
-uploaded_file = st.file_uploader(
+uploaded = st.file_uploader(
     "Importer Excel",
     type=["xlsx"]
 )
 
-if uploaded_file:
+if uploaded:
 
-    try:
+    df = load_data(uploaded)
 
-        excel = pd.ExcelFile(uploaded_file)
+    df = add_indicators(df)
 
-        st.success(
-            f"Feuilles : {', '.join(excel.sheet_names)}"
-        )
+    df = df.dropna()
 
-        if "Data_masi" not in excel.sheet_names:
+    score, comments = compute_score(df)
 
-            st.error(
-                "Feuille Data_masi introuvable"
-            )
+    supports, resistances = detect_sr(df)
 
-            st.stop()
+    # KPIs
 
-        df = pd.read_excel(
-            uploaded_file,
-            sheet_name="Data_masi"
-        )
+    st.header("🎯 Analyse")
 
-        df.columns = df.columns.str.strip()
+    c1, c2, c3 = st.columns(3)
 
-        required_cols = [
-            "Date",
-            "Close"
-        ]
-
-        for col in required_cols:
-
-            if col not in df.columns:
-                st.error(
-                    f"Colonne manquante : {col}"
-                )
-                st.stop()
-
-        df["Date"] = pd.to_datetime(
-            df["Date"],
-            errors="coerce"
-        )
-
-        df["Close"] = (
-            df["Close"]
-            .astype(str)
-            .str.replace(" ", "")
-            .str.replace(",", ".")
-        )
-
-        df["Close"] = pd.to_numeric(
-            df["Close"],
-            errors="coerce"
-        )
-
-        df.dropna(
-            subset=["Date", "Close"],
-            inplace=True
-        )
-
-        df.sort_values(
-            "Date",
-            inplace=True
-        )
-
-        # ====================================================
-        # INDICATEURS
-        # ====================================================
-
-        df["SMA20"] = ta.trend.sma_indicator(
-            df["Close"],
-            20
-        )
-
-        df["SMA50"] = ta.trend.sma_indicator(
-            df["Close"],
-            50
-        )
-
-        df["SMA200"] = ta.trend.sma_indicator(
-            df["Close"],
-            200
-        )
-
-        df["RSI"] = ta.momentum.rsi(
-            df["Close"],
-            14
-        )
-
-        macd_obj = ta.trend.MACD(df["Close"])
-
-        df["MACD"] = macd_obj.macd()
-
-        df["SIGNAL"] = (
-            macd_obj.macd_signal()
-        )
-
-        df["HISTO"] = (
-            df["MACD"]
-            - df["SIGNAL"]
-        )
-
-        bb = ta.volatility.BollingerBands(
-            df["Close"],
-            20,
+    c1.metric(
+        "Cours",
+        round(
+            df["Close"].iloc[-1],
             2
         )
+    )
 
-        df["BB_HAUT"] = \
-            bb.bollinger_hband()
-
-        df["BB_BAS"] = \
-            bb.bollinger_lband()
-
-        df["BB_MID"] = \
-            bb.bollinger_mavg()
-
-        # ====================================================
-        # VOLATILITE
-        # ====================================================
-
-        df["RET"] = np.log(
-            df["Close"]
-            / df["Close"].shift(1)
+    c2.metric(
+        "RSI",
+        round(
+            df["RSI"].iloc[-1],
+            2
         )
+    )
 
-        df["VOL20"] = (
-            df["RET"]
-            .rolling(20)
-            .std()
-            * np.sqrt(252)
-        )
+    c3.metric(
+        "Score",
+        score
+    )
 
-        df["PLUS_HAUT20"] = (
-            df["Close"]
-            .rolling(20)
-            .max()
-        )
+    for x in comments:
+        st.write(x)
 
-        df["PLUS_BAS20"] = (
-            df["Close"]
-            .rolling(20)
-            .min()
-        )
+    # Graphique
 
-        # ====================================================
-        # SUPPORTS RESISTANCES
-        # ====================================================
+    fig = go.Figure()
 
-        prices = df["Close"].values
-
-        minima = argrelextrema(
-            prices,
-            np.less,
-            order=5
-        )[0]
-
-        maxima = argrelextrema(
-            prices,
-            np.greater,
-            order=5
-        )[0]
-
-        supports = filtrer_niveaux(
-            prices[minima]
-        )
-
-        resistances = filtrer_niveaux(
-            prices[maxima]
-        )
-
-        close = df["Close"].iloc[-1]
-
-        supports_valides = [
-            s for s in supports
-            if s < close
-        ]
-
-        resistances_valides = [
-            r for r in resistances
-            if r > close
-        ]
-
-        support_proche = (
-            max(supports_valides)
-            if supports_valides
-            else None
-        )
-
-        resistance_proche = (
-            min(resistances_valides)
-            if resistances_valides
-            else None
-        )
-
-        # ====================================================
-        # DERNIERS INDICATEURS
-        # ====================================================
-
-        sma20 = df["SMA20"].iloc[-1]
-        sma50 = df["SMA50"].iloc[-1]
-        sma200 = df["SMA200"].iloc[-1]
-
-        rsi = df["RSI"].iloc[-1]
-        macd = df["MACD"].iloc[-1]
-        signal = df["SIGNAL"].iloc[-1]
-        histo = df["HISTO"].iloc[-1]
-
-        vol20 = df["VOL20"].iloc[-1]
-
-        ph20 = df["PLUS_HAUT20"].iloc[-1]
-        pb20 = df["PLUS_BAS20"].iloc[-1]
-
-        position = 50
-
-        if (
-                pd.notna(ph20)
-                and pd.notna(pb20)
-                and ph20 > pb20
-        ):
-
-            position = (
-                (close - pb20)
-                / (ph20 - pb20)
-            ) * 100
-
-            position = max(
-                0,
-                min(100, position)
-            )
-
-        score, commentaires = calculer_score(
-            close,
-            sma20,
-            sma50,
-            sma200,
-            rsi,
-            macd,
-            signal,
-            histo,
-            vol20,
-            position
-        )
-
-        avis = opinion(score)
-
-        # ====================================================
-        # GOLDEN CROSS
-        # ====================================================
-
-        if len(df) > 220:
-
-            prev50 = df["SMA50"].iloc[-2]
-            prev200 = df["SMA200"].iloc[-2]
-
-            if (
-                    prev50 < prev200
-                    and sma50 > sma200
-            ):
-                commentaires.append(
-                    "🚀 Golden Cross détecté"
-                )
-
-            if (
-                    prev50 > prev200
-                    and sma50 < sma200
-            ):
-                commentaires.append(
-                    "⚠ Death Cross détecté"
-                )
-
-        # ====================================================
-        # RAPPORT
-        # ====================================================
-
-        rapport = rapport_technique(
-            close,
-            score,
-            avis,
-            rsi,
-            macd,
-            signal,
-            sma20,
-            sma50,
-            sma200,
-            support_proche,
-            resistance_proche
-        )
-
-        # ====================================================
-        # SCORE
-        # ====================================================
-
-        st.header("🎯 Score Technique")
-
-        col1, col2, col3 = st.columns(3)
-
-        col1.metric(
-            "Score",
-            f"{score}/100"
-        )
-
-        col2.metric(
-            "RSI",
-            f"{rsi:.1f}"
-        )
-
-        col3.metric(
-            "Position",
-            f"{position:.1f}%"
-        )
-
-        gauge = go.Figure(
-            go.Indicator(
-                mode="gauge+number",
-                value=score,
-                title={
-                    "text":
-                    "Score Technique"
-                },
-                gauge={
-                    "axis":
-                        {"range": [0, 100]}
-                }
-            )
-        )
-
-        st.plotly_chart(
-            gauge,
-            use_container_width=True
-        )
-
-        st.markdown(
-            f"## {avis}"
-        )
-
-        st.subheader(
-            "📝 Commentaires"
-        )
-
-        for c in commentaires:
-            st.write(c)
-
-        st.subheader(
-            "📑 Rapport Technique"
-        )
-
-        st.text(rapport)
-
-        # ====================================================
-        # GRAPHIQUE PRINCIPAL
-        # ====================================================
-
-        fig = go.Figure()
-
-        fig.add_trace(
-            go.Scatter(
-                x=df["Date"],
-                y=df["Close"],
-                name="Cours"
-            )
-        )
-
-        fig.add_trace(
-            go.Scatter(
-                x=df["Date"],
-                y=df["SMA20"],
-                name="SMA20"
-            )
-        )
-
-        fig.add_trace(
-            go.Scatter(
-                x=df["Date"],
-                y=df["SMA50"],
-                name="SMA50"
-            )
-        )
-
-        fig.add_trace(
-            go.Scatter(
-                x=df["Date"],
-                y=df["SMA200"],
-                name="SMA200"
-            )
-        )
-
-        st.plotly_chart(
-            fig,
-            use_container_width=True
-        )
-
-        # ====================================================
-        # RSI
-        # ====================================================
-
-        fig_rsi = go.Figure()
-
-        fig_rsi.add_trace(
-            go.Scatter(
-                x=df["Date"],
-                y=df["RSI"],
-                name="RSI"
-            )
-        )
-
-        fig_rsi.add_hline(y=70)
-        fig_rsi.add_hline(y=30)
-
-        st.plotly_chart(
-            fig_rsi,
-            use_container_width=True
-        )
-
-        # ====================================================
-        # MACD
-        # ====================================================
-
-        fig_macd = go.Figure()
-
-        fig_macd.add_trace(
-            go.Scatter(
-                x=df["Date"],
-                y=df["MACD"],
-                name="MACD"
-            )
-        )
-
-        fig_macd.add_trace(
-            go.Scatter(
-                x=df["Date"],
-                y=df["SIGNAL"],
-                name="Signal"
-            )
-        )
-
-        fig_macd.add_bar(
+    fig.add_trace(
+        go.Scatter(
             x=df["Date"],
-            y=df["HISTO"],
-            name="Histogramme"
+            y=df["Close"],
+            name="Close"
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=df["Date"],
+            y=df["SMA20"],
+            name="SMA20"
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=df["Date"],
+            y=df["SMA50"],
+            name="SMA50"
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=df["Date"],
+            y=df["SMA200"],
+            name="SMA200"
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=df["Date"],
+            y=df["BB_UP"],
+            name="BB_UP"
+        )
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=df["Date"],
+            y=df["BB_LOW"],
+            name="BB_LOW"
+        )
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
+
+    # Backtest
+
+    st.header("📊 Backtest")
+
+    trades = run_backtest(df)
+
+    if len(trades):
+
+        winrate = (
+            np.mean(
+                np.array(trades) > 0
+            ) * 100
         )
 
-        st.plotly_chart(
-            fig_macd,
-            use_container_width=True
+        perf = sum(trades)
+
+        b1, b2 = st.columns(2)
+
+        b1.metric(
+            "Win Rate",
+            f"{winrate:.1f}%"
         )
 
-        # ====================================================
-        # EXPORTS
-        # ====================================================
-
-        buffer = BytesIO()
-
-        with pd.ExcelWriter(
-                buffer,
-                engine="openpyxl"
-        ) as writer:
-
-            df.to_excel(
-                writer,
-                sheet_name="Indicateurs",
-                index=False
-            )
-
-            pd.DataFrame(
-                {"Supports": supports}
-            ).to_excel(
-                writer,
-                sheet_name="Supports",
-                index=False
-            )
-
-            pd.DataFrame(
-                {"Resistances": resistances}
-            ).to_excel(
-                writer,
-                sheet_name="Resistances",
-                index=False
-            )
-
-            pd.DataFrame(
-                {"Rapport": [rapport]}
-            ).to_excel(
-                writer,
-                sheet_name="Rapport",
-                index=False
-            )
-
-        st.download_button(
-            "📥 Télécharger Excel",
-            data=buffer.getvalue(),
-            file_name="MASI_PRO_V3.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        b2.metric(
+            "Performance",
+            f"{perf:.2f}%"
         )
 
-        st.download_button(
-            "📄 Télécharger Rapport TXT",
-            rapport,
-            file_name="Rapport_MASI.txt",
-            mime="text/plain"
+    # Export
+
+    buffer = BytesIO()
+
+    with pd.ExcelWriter(
+        buffer,
+        engine="openpyxl"
+    ) as writer:
+
+        df.to_excel(
+            writer,
+            sheet_name="MASI",
+            index=False
         )
 
-    except Exception as e:
-
-        st.error(
-            f"Erreur : {str(e)}"
-        )
-
-        st.exception(e)
+    st.download_button(
+        "📥 Télécharger",
+        buffer.getvalue(),
+        "MASI_PRO_V4.xlsx"
+    )
