@@ -181,7 +181,6 @@ def run_backtest(df):
 
     position = False
     entry_price = None
-
     trades = []
 
     for i in range(len(df)):
@@ -202,7 +201,6 @@ def run_backtest(df):
             entry_price = None
 
     return trades
-
 
 # =====================================================
 # APPLICATION
