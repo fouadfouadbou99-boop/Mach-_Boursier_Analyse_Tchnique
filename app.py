@@ -3,408 +3,149 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import ta
-
 from scipy.signal import argrelextrema
 
-# =====================================================
-# CONFIGURATION
-# =====================================================
+st.set_page_config(page_title="Analyse Technique MASI Pro", page_icon="📈", layout="wide")
+st.title("📈 Analyse Technique MASI Pro")
 
-st.set_page_config(
-    page_title="Analyse Chartiste Automatique",
-    page_icon="📈",
-    layout="wide"
-)
+uploaded_file = st.file_uploader("Importer un fichier Excel", type=["xlsx"])
 
-st.title("📈 Analyse Chartiste Automatique")
 
-st.markdown("""
-Chargez un fichier Excel contenant au minimum :
+def filtrer_niveaux(levels, seuil=0.01):
+    niveaux = []
+    for lvl in sorted(levels):
+        if not niveaux:
+            niveaux.append(float(lvl))
+        elif abs(lvl - niveaux[-1]) / niveaux[-1] > seuil:
+            niveaux.append(float(lvl))
+    return niveaux
 
-- Date
-- Close
-
-L'application génère :
-
-✅ Graphique interactif
-
-✅ Supports & Résistances
-
-✅ RSI
-
-✅ MACD
-
-✅ Analyse automatique commentée
-""")
-
-# =====================================================
-# IMPORT FICHIER
-# =====================================================
-
-uploaded_file = st.file_uploader(
-    "Importer un fichier Excel",
-    type=["xlsx"]
-)
-
-if uploaded_file is not None:
-
+if uploaded_file:
     try:
-
-        df = pd.read_excel(uploaded_file)
+        try:
+            df = pd.read_excel(uploaded_file, sheet_name="Data_masi")
+        except Exception:
+            df = pd.read_excel(uploaded_file)
 
         df.columns = df.columns.str.strip()
 
-        if "Date" not in df.columns:
-            st.error("Colonne Date introuvable.")
+        if 'Date' not in df.columns or 'Close' not in df.columns:
+            st.error('Colonnes Date et Close obligatoires')
             st.stop()
 
-        if "Close" not in df.columns:
-            st.error("Colonne Close introuvable.")
-            st.write(df.columns.tolist())
-            st.stop()
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
 
-        # =====================================================
-        # PREPARATION DONNEES
-        # =====================================================
-
-        df["Date"] = pd.to_datetime(
-            df["Date"],
-            errors="coerce"
+        df['Close'] = (
+            df['Close'].astype(str)
+            .str.replace('\xa0','', regex=False)
+            .str.replace(' ','', regex=False)
+            .str.replace(',', '.', regex=False)
         )
 
-        df["Close"] = (
-            df["Close"]
-            .astype(str)
-            .str.replace("\xa0", "", regex=False)
-            .str.replace(" ", "", regex=False)
-            .str.replace(",", ".", regex=False)
-        )
+        df['Close'] = pd.to_numeric(df['Close'], errors='coerce')
 
-        df["Close"] = pd.to_numeric(
-            df["Close"],
-            errors="coerce"
-        )
+        df = df.dropna(subset=['Date','Close'])
+        df = df.sort_values('Date').reset_index(drop=True)
 
-        df = df.dropna(
-            subset=["Date", "Close"]
-        )
+        df['SMA20'] = ta.trend.sma_indicator(df['Close'], window=20)
+        df['SMA50'] = ta.trend.sma_indicator(df['Close'], window=50)
 
-        df = df.sort_values(
-            "Date"
-        ).reset_index(drop=True)
+        if len(df) >= 200:
+            df['SMA200'] = ta.trend.sma_indicator(df['Close'], window=200)
+        else:
+            df['SMA200'] = np.nan
 
-        st.success("Fichier chargé avec succès")
+        df['RSI'] = ta.momentum.rsi(df['Close'], window=14)
 
-        # =====================================================
-        # INDICATEURS TECHNIQUES
-        # =====================================================
+        macd_obj = ta.trend.MACD(df['Close'])
+        df['MACD'] = macd_obj.macd()
+        df['SIGNAL'] = macd_obj.macd_signal()
+        df['HISTO'] = df['MACD'] - df['SIGNAL']
 
-        df["SMA20"] = ta.trend.sma_indicator(
-            close=df["Close"],
-            window=20
-        )
+        bb = ta.volatility.BollingerBands(df['Close'], window=20, window_dev=2)
+        df['BB_HAUT'] = bb.bollinger_hband()
+        df['BB_BAS'] = bb.bollinger_lband()
+        df['BB_MILIEU'] = bb.bollinger_mavg()
 
-        df["SMA50"] = ta.trend.sma_indicator(
-            close=df["Close"],
-            window=50
-        )
+        df['Rendement'] = np.log(df['Close'] / df['Close'].shift(1))
+        df['Vol20'] = df['Rendement'].rolling(20).std() * np.sqrt(252)
+        df['PlusHaut20'] = df['Close'].rolling(20).max()
+        df['PlusBas20'] = df['Close'].rolling(20).min()
 
-        df["SMA200"] = ta.trend.sma_indicator(
-            close=df["Close"],
-            window=200
-        )
+        prices = df['Close'].values
+        minima = argrelextrema(prices, np.less, order=5)[0]
+        maxima = argrelextrema(prices, np.greater, order=5)[0]
 
-        df["RSI"] = ta.momentum.rsi(
-            close=df["Close"],
-            window=14
-        )
-
-        macd_obj = ta.trend.MACD(df["Close"])
-
-        df["MACD"] = macd_obj.macd()
-        df["SIGNAL"] = macd_obj.macd_signal()
-
-        # =====================================================
-        # SUPPORTS / RESISTANCES
-        # =====================================================
-
-        prices = df["Close"].values
-
-        minima = argrelextrema(
-            prices,
-            np.less,
-            order=5
-        )[0]
-
-        maxima = argrelextrema(
-            prices,
-            np.greater,
-            order=5
-        )[0]
-
-        supports = prices[minima]
-        resistances = prices[maxima]
-
-        # =====================================================
-        # GRAPHIQUE PRINCIPAL
-        # =====================================================
+        supports = filtrer_niveaux(prices[minima])
+        resistances = filtrer_niveaux(prices[maxima])
 
         fig = go.Figure()
+        fig.add_trace(go.Scatter(x=df['Date'], y=df['Close'], name='Cours'))
+        fig.add_trace(go.Scatter(x=df['Date'], y=df['SMA20'], name='SMA20'))
+        fig.add_trace(go.Scatter(x=df['Date'], y=df['SMA50'], name='SMA50'))
+        fig.add_trace(go.Scatter(x=df['Date'], y=df['SMA200'], name='SMA200'))
+        fig.add_trace(go.Scatter(x=df['Date'], y=df['BB_HAUT'], name='BB Haut'))
+        fig.add_trace(go.Scatter(x=df['Date'], y=df['BB_BAS'], name='BB Bas'))
 
-        fig.add_trace(
-            go.Scatter(
-                x=df["Date"],
-                y=df["Close"],
-                name="Cours"
-            )
-        )
+        for s in supports[-5:]:
+            fig.add_hline(y=s, line_color='green', line_dash='dot')
+        for r in resistances[-5:]:
+            fig.add_hline(y=r, line_color='red', line_dash='dash')
 
-        fig.add_trace(
-            go.Scatter(
-                x=df["Date"],
-                y=df["SMA20"],
-                name="SMA20"
-            )
-        )
+        st.plotly_chart(fig, use_container_width=True)
 
-        fig.add_trace(
-            go.Scatter(
-                x=df["Date"],
-                y=df["SMA50"],
-                name="SMA50"
-            )
-        )
+        close = df['Close'].iloc[-1]
+        sma20 = df['SMA20'].iloc[-1]
+        sma50 = df['SMA50'].iloc[-1]
+        sma200 = df['SMA200'].iloc[-1]
+        rsi = df['RSI'].iloc[-1]
+        macd = df['MACD'].iloc[-1]
+        signal = df['SIGNAL'].iloc[-1]
+        histo = df['HISTO'].iloc[-1]
+        vol20 = df['Vol20'].iloc[-1]
+        ph20 = df['PlusHaut20'].iloc[-1]
+        pb20 = df['PlusBas20'].iloc[-1]
 
-        fig.add_trace(
-            go.Scatter(
-                x=df["Date"],
-                y=df["SMA200"],
-                name="SMA200"
-            )
-        )
+        score = 0
+        if not np.isnan(sma200):
+            if close > sma200: score += 15
+            if sma50 > sma200: score += 15
+        if sma20 > sma50: score += 10
+        if macd > signal: score += 10
+        if histo > 0: score += 10
 
-        for s in supports:
+        if 45 <= rsi <= 65: score += 15
+        elif 35 <= rsi < 45 or 65 < rsi <= 75: score += 10
+        elif 25 <= rsi < 35: score += 5
 
-            fig.add_hline(
-                y=float(s),
-                line_color="green",
-                line_dash="dot"
-            )
+        position = np.nan
+        if ph20 != pb20:
+            position = ((close - pb20)/(ph20-pb20))*100
+            if position > 70: score += 15
+            elif position > 50: score += 10
+            elif position > 30: score += 5
 
-        for r in resistances:
+        if vol20 < 0.15: score += 10
+        elif vol20 < 0.25: score += 5
 
-            fig.add_hline(
-                y=float(r),
-                line_color="red",
-                line_dash="dash"
-            )
+        st.header('🎯 Score Technique')
+        c1,c2,c3 = st.columns(3)
+        c1.metric('Score', f'{score}/100')
+        c2.metric('RSI', f'{rsi:.1f}')
+        c3.metric('Range20', f'{position:.0f}%')
 
-        fig.update_layout(
-            title="Analyse Chartiste",
-            height=700
-        )
-
-        st.plotly_chart(
-            fig,
-            use_container_width=True
-        )
-
-        # =====================================================
-        # RSI
-        # =====================================================
-
-        st.subheader("RSI")
-
-        fig_rsi = go.Figure()
-
-        fig_rsi.add_trace(
-            go.Scatter(
-                x=df["Date"],
-                y=df["RSI"],
-                name="RSI"
-            )
-        )
-
-        fig_rsi.add_hline(y=70)
-        fig_rsi.add_hline(y=30)
-
-        st.plotly_chart(
-            fig_rsi,
-            use_container_width=True
-        )
-
-        # =====================================================
-        # MACD
-        # =====================================================
-
-        st.subheader("MACD")
-
-        fig_macd = go.Figure()
-
-        fig_macd.add_trace(
-            go.Scatter(
-                x=df["Date"],
-                y=df["MACD"],
-                name="MACD"
-            )
-        )
-
-        fig_macd.add_trace(
-            go.Scatter(
-                x=df["Date"],
-                y=df["SIGNAL"],
-                name="Signal"
-            )
-        )
-
-        st.plotly_chart(
-            fig_macd,
-            use_container_width=True
-        )
-
-        # =====================================================
-        # ANALYSE COMMENTEE
-        # =====================================================
-
-        st.header("🧠 Analyse Automatique")
-
-        dernier_cours = df["Close"].iloc[-1]
-        sma20 = df["SMA20"].iloc[-1]
-        sma50 = df["SMA50"].iloc[-1]
-        rsi = df["RSI"].iloc[-1]
-        macd = df["MACD"].iloc[-1]
-        signal = df["SIGNAL"].iloc[-1]
-
-        support_proche = max(
-            [s for s in supports if s < dernier_cours],
-            default=np.nan
-        )
-
-        resistance_proche = min(
-            [r for r in resistances if r > dernier_cours],
-            default=np.nan
-        )
-
-        commentaire = f"""
-### Synthèse
-
-Le dernier cours observé est de **{dernier_cours:,.2f}** points.
-
-"""
-
-        if sma20 > sma50:
-
-            commentaire += """
-✅ La moyenne mobile 20 jours est supérieure à la moyenne mobile 50 jours.
-
-La tendance de court terme demeure haussière.
-
-"""
-
+        if score >= 80:
+            st.success('ACHAT FORT')
+        elif score >= 65:
+            st.success('ACHAT')
+        elif score >= 50:
+            st.info('CONSERVATION')
+        elif score >= 35:
+            st.warning('VIGILANCE')
         else:
+            st.error('VENTE')
 
-            commentaire += """
-⚠️ La moyenne mobile 20 jours est inférieure à la moyenne mobile 50 jours.
-
-La tendance de court terme demeure baissière.
-
-"""
-
-        if rsi > 70:
-
-            commentaire += f"""
-Le RSI est de **{rsi:.1f}**.
-
-Le marché se situe en zone de surachat.
-"""
-
-        elif rsi < 30:
-
-            commentaire += f"""
-Le RSI est de **{rsi:.1f}**.
-
-Le marché se situe en zone de survente.
-"""
-
-        else:
-
-            commentaire += f"""
-Le RSI est de **{rsi:.1f}**.
-
-Le marché se situe dans une zone neutre.
-"""
-
-        if macd > signal:
-
-            commentaire += """
-
-Le MACD évolue au-dessus de sa ligne de signal.
-
-Le momentum reste positif.
-"""
-
-        else:
-
-            commentaire += """
-
-Le MACD évolue sous sa ligne de signal.
-
-Le momentum reste négatif.
-"""
-
-        if not np.isnan(support_proche):
-
-            commentaire += f"""
-
-**Support principal : {support_proche:,.0f} points**
-"""
-
-        if not np.isnan(resistance_proche):
-
-            commentaire += f"""
-
-**Résistance principale : {resistance_proche:,.0f} points**
-"""
-
-        st.info(commentaire)
-
-        # =====================================================
-        # RECOMMANDATION
-        # =====================================================
-
-        st.header("🎯 Opinion Technique")
-
-        if sma20 > sma50 and macd > signal and rsi < 70:
-
-            st.success(
-                "ACHAT / CONSERVATION : les indicateurs restent globalement favorables."
-            )
-
-        elif sma20 < sma50 and macd < signal:
-
-            st.error(
-                "VIGILANCE : les indicateurs affichent un biais baissier."
-            )
-
-        else:
-
-            st.warning(
-                "NEUTRE : marché en phase d'hésitation ou de consolidation."
-            )
-
-        # =====================================================
-        # DONNEES
-        # =====================================================
-
-        st.subheader("Données")
-
-        st.dataframe(
-            df.tail(50),
-            use_container_width=True
-        )
+        st.dataframe(df.tail(50), use_container_width=True)
 
     except Exception as e:
-
-        st.error("Erreur détectée")
-
         st.exception(e)
