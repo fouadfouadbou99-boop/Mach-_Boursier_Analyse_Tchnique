@@ -186,16 +186,20 @@ def run_backtest(df):
 
         price = df["Close"].iloc[i]
 
-        if (not position) and buy_signal.iloc[i]:
+       if (not position) and buy_signal.iloc[i]:
 
-            position = True
-  ice = price
+       position = True
+       entry_price = price
 
-        elif position and sell_signal.ilocperf = (
+        elif positionlocperf = (
                 (price - entry_price)
                 / entry_price
             ) * 100
 
+            trades.append(perf)
+
+            position = False
+            entry_price = None
             trades.append(perf)
 
             position = False
