@@ -53,7 +53,6 @@ def load_data(file):
 
     return df
 
-
 # =====================================================
 # INDICATEURS
 # =====================================================
@@ -102,7 +101,6 @@ def add_indicators(df):
 
     return df
 
-
 # =====================================================
 # SUPPORTS / RESISTANCES
 # =====================================================
@@ -127,7 +125,6 @@ def detect_sr(df):
     resistances = prices[maxima]
 
     return supports, resistances
-
 
 # =====================================================
 # SCORE
@@ -155,7 +152,6 @@ def calculate_score(df):
         score += 15
 
     return min(score, 100)
-
 
 # =====================================================
 # APPLICATION
