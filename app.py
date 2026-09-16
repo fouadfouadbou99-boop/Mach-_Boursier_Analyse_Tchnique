@@ -258,55 +258,7 @@ if uploaded_file:
             fig,
             use_container_width=True
         )
-
-        # ==========================================
-        # BACKTEST
-        # ==========================================
-
-       # =====================================================
-# BACKTEST
-# =====================================================
-
-def run_backtest(df):
-
-    buy_signal = (
-        (df["SMA20"] > df["SMA50"])
-        &
-        (df["MACD"] > df["SIGNAL"])
-        &
-        (df["RSI"] > 50)
-    )
-
-    sell_signal = (
-        (df["SMA20"] < df["SMA50"])
-        |
-        (df["MACD"] < df["SIGNAL"])
-        |
-        (df["RSI"] < 45)
-    )
-
-    position = False
-    entry_price = None
-    trades = []
-
-    for i in range(len(df)):
-
-        price = df["Close"].iloc[i]
-
-        if (not position) and buy_signal.ilocposition = True
-            entry_price = price
-
-        elif position and sell_signal.ilocperf = (
-                (price - entry_price)
-                / entry_price
-            ) * 100
-
-            trades.append(perf)
-
-            position = False
-            entry_price = None
-
-    return trades
+      
 
         # ==========================================
         # EXPORT
