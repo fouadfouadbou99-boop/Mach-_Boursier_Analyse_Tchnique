@@ -161,50 +161,91 @@ def calculate_score(df):
 # BACKTEST
 # =====================================================
 
-def run_backtest(df):
-
-    buy_signal = (
-        (df["SMA20"] > df["SMA50"])
-        &
-        (df["MACD"] > df["SIGNAL"])
-        &
-        (df["RSI"] > 50)
-    )
-
-    sell_signal = (
-        (df["SMA20"] < df["SMA50"])
-        |
-        (df["MACD"] < df["SIGNAL"])
-        |
-        (df["RSI"] < 45)
-    )
-
-    position = False
-    entry_price = None
-    trades = []
-
-    for i in range(len(df)):
-
-        price = df["Close"].iloc[i]
-
-        if (not position) and buy_signal.iloc[i]:
-
-            position = True
-  ice = price
-
-        elif position and sell_signal.iloc[i]:
-
-            perf = (
-                (price              / entry_price
-            ) * 100
-
-            trades.append(perf)
-
-            position = False
-            entry_price = None
-
-    return trades
-
+ef run_backtest(df):
+2
+ 
+3
+buy_signal = (
+4
+(df["SMA20"] > df["SMA50"])
+5
+&
+6
+(df["MACD"] > df["SIGNAL"])
+7
+&
+8
+(df["RSI"] > 50)
+9
+)
+10
+ 
+11
+sell_signal = (
+12
+(df["SMA20"] < df["SMA50"])
+13
+|
+14
+(df["MACD"] < df["SIGNAL"])
+15
+|
+16
+(df["RSI"] < 45)
+17
+)
+18
+ 
+19
+position = False
+20
+entry_price = None
+21
+trades = []
+22
+ 
+23
+for i in range(len(df)):
+24
+ 
+25
+price = df["Close"].iloc[i]
+26
+ 
+27
+if (not position) and buy_signal.iloc[i]:
+28
+ 
+29
+position = True
+30
+ice = price
+31
+ 
+32
+elif position and sell_signal.iloc[i]:
+33
+ 
+34
+perf = (
+35
+(price / entry_price
+36
+) * 100
+37
+ 
+38
+trades.append(perf)
+39
+ 
+40
+position = False
+41
+entry_price = None
+42
+ 
+43
+return trades
 # =====================================================
 # APPLICATION
 # =====================================================
