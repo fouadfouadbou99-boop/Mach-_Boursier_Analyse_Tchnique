@@ -4,8 +4,8 @@ import numpy as np
 import plotly.graph_objects as go
 import ta
 
-from scipy.signal import argrelextrema
 from io import BytesIO
+from scipy.signal import argrelextrema
 
 # =====================================================
 # CONFIGURATION
@@ -52,6 +52,7 @@ def load_data(file):
     )
 
     return df
+
 
 # =====================================================
 # INDICATEURS
@@ -101,6 +102,7 @@ def add_indicators(df):
 
     return df
 
+
 # =====================================================
 # SUPPORTS / RESISTANCES
 # =====================================================
@@ -125,6 +127,7 @@ def detect_sr(df):
     resistances = prices[maxima]
 
     return supports, resistances
+
 
 # =====================================================
 # SCORE
@@ -153,9 +156,6 @@ def calculate_score(df):
 
     return min(score, 100)
 
-# =====================================================
-# BACKTEST
-# =====================================================
 
 # =====================================================
 # BACKTEST
@@ -187,13 +187,13 @@ def run_backtest(df):
 
         price = df["Close"].iloc[i]
 
-        # Achat
-        if (not position) and buy_signal.ilocposition = True
-            entry_price = price
+        if (not position) and buy_signal.iloc[i]:
 
-        # Vente
-        elif position and sell_signal.ilocperf = (
-                (price - entry_price)
+            position = True
+            entry_price = priceition and sell_signal.iloc[i]:
+
+            perf = (
+                (e)
                 / entry_price
             ) * 100
 
@@ -203,6 +203,7 @@ def run_backtest(df):
             entry_price = None
 
     return trades
+
 
 # =====================================================
 # APPLICATION
@@ -229,7 +230,7 @@ if uploaded_file:
 
         last = df.iloc[-1]
 
-        st.header("🎯 Indicateurs")
+        st.header("🎯 Résumé")
 
         c1, c2, c3 = st.columns(3)
 
@@ -248,9 +249,9 @@ if uploaded_file:
             score
         )
 
-        # ==============================
+        # ==========================================
         # GRAPHIQUE
-        # ==============================
+        # ==========================================
 
         fig = go.Figure()
 
@@ -258,7 +259,7 @@ if uploaded_file:
             go.Scatter(
                 x=df["Date"],
                 y=df["Close"],
-                name="Cours"
+                name="MASI"
             )
         )
 
@@ -307,9 +308,9 @@ if uploaded_file:
             use_container_width=True
         )
 
-        # ==============================
+        # ==========================================
         # BACKTEST
-        # ==============================
+        # ==========================================
 
         st.header("📊 Backtest")
 
@@ -348,9 +349,9 @@ if uploaded_file:
                 "Aucun trade détecté."
             )
 
-        # ==============================
+        # ==========================================
         # EXPORT
-        # ==============================
+        # ==========================================
 
         buffer = BytesIO()
 
@@ -365,16 +366,4 @@ if uploaded_file:
                 index=False
             )
 
-        st.download_button(
-            "📥 Télécharger Excel",
-            buffer.getvalue(),
-            "MASI_PRO_V4.xlsx"
-        )
-
-    except Exception as e:
-
-        st.error(
-            f"Erreur : {str(e)}"
-        )
-
-        st.exception(e)
+        st.
