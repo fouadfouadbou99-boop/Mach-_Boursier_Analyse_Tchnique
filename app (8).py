@@ -161,6 +161,10 @@ def calculate_score(df):
 # BACKTEST
 # =====================================================
 
+# =====================================================
+# BACKTEST
+# =====================================================
+
 def run_backtest(df):
 
     buy_signal = (
@@ -190,7 +194,9 @@ def run_backtest(df):
         if (not position) and buy_signal.iloc[i]:
 
             position = True
-            entry_price = f position and sell_signal.iloc[i]: = (
+            entry_price = price
+
+        elif positionlocperf = (
                 (price - entry_price)
                 / entry_price
             ) * 100
