@@ -8,19 +8,19 @@ from io import BytesIO
 from scipy.signal import argrelextrema
 
 # =====================================================
-# CONFIG
+# CONFIGURATION
 # =====================================================
 
 st.set_page_config(
-    page_title="MASI Pro",
+    page_title="MASI Pro V4",
     page_icon="📈",
     layout="wide"
 )
 
-st.title("📈 MASI Pro")
+st.title("📈 MASI Pro V4")
 
 # =====================================================
-# CHARGEMENT
+# CHARGEMENT DES DONNEES
 # =====================================================
 
 @st.cache_data
@@ -154,10 +154,7 @@ def calculate_score(df):
     if 45 <= last["RSI"] <= 70:
         score += 15
 
-    return min(
-        score,
-        100
-    )
+    return min(score, 100)
 
 
 # =====================================================
@@ -191,19 +188,18 @@ def run_backtest(df):
 
         price = df["Close"].iloc[i]
 
-        if not position and buy_signal.iloc[i]:
-
-            position = True
+        if (not position) and buy_signal.ilocposition = True
             entry_price = price
 
-        elif position and sell_signal.           (price - entry_price)
+        elif position and sell_signal.ilocperf = (
+                (price - entry_price)
                 / entry_price
             ) * 100
 
             trades.append(perf)
 
-            entry_price = None
             position = False
+            entry_price = None
 
     return trades
 
@@ -349,4 +345,37 @@ if uploaded_file:
         else:
 
             st.warning(
-                "Aucun
+                "Aucun trade détecté."
+            )
+
+        # =============================================
+        # EXPORT
+        # =============================================
+
+        buffer = BytesIO()
+
+        with pd.ExcelWriter(
+            buffer,
+            engine="openpyxl"
+        ) as writer:
+
+            df.to_excel(
+                writer,
+                sheet_name="Analyse",
+                index=False
+            )
+
+        st.download_button(
+            "📥 Télécharger Excel",
+            buffer.getvalue(),
+            "MASI_PRO_V4.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    except Exception as e:
+
+        st.error(
+            f"Erreur : {str(e)}"
+        )
+
+        st.exception(e)
