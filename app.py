@@ -314,42 +314,50 @@ if uploaded_file:
         # BACKTEST
         # ==========================================
 
-        st.header("📊 Backtest")
+       # =====================================================
+# BACKTEST
+# =====================================================
 
-        trades = run_backtest(df)
+def run_backtest(df):
 
-        if len(trades) > 0:
+    buy_signal = (
+        (df["SMA20"] > df["SMA50"])
+        &
+        (df["MACD"] > df["SIGNAL"])
+        &
+        (df["RSI"] > 50)
+    )
 
-            winrate = (
-                np.mean(
-                    np.array(trades) > 0
-                ) * 100
-            )
+    sell_signal = (
+        (df["SMA20"] < df["SMA50"])
+        |
+        (df["MACD"] < df["SIGNAL"])
+        |
+        (df["RSI"] < 45)
+    )
 
-            performance = sum(trades)
+    position = False
+    entry_price = None
+    trades = []
 
-            b1, b2, b3 = st.columns(3)
+    for i in range(len(df)):
 
-            b1.metric(
-                "Trades",
-                len(trades)
-            )
+        price = df["Close"].iloc[i]
 
-            b2.metric(
-                "Win Rate",
-                f"{winrate:.1f}%"
-            )
+        if (not position) and buy_signal.ilocposition = True
+            entry_price = price
 
-            b3.metric(
-                "Performance",
-                f"{performance:.2f}%"
-            )
+        elif position and sell_signal.ilocperf = (
+                (price - entry_price)
+                / entry_price
+            ) * 100
 
-        else:
+            trades.append(perf)
 
-            st.warning(
-                "Aucun trade détecté."
-            )
+            position = False
+            entry_price = None
+
+    return trades
 
         # ==========================================
         # EXPORT
