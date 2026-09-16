@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import ta
+
 from io import BytesIO
 from scipy.signal import argrelextrema
 
@@ -11,15 +12,15 @@ from scipy.signal import argrelextrema
 # =====================================================
 
 st.set_page_config(
-    page_title="MASI Pro V4",
+    page_title="MASI Pro",
     page_icon="📈",
     layout="wide"
 )
 
-st.title("📈 MASI Pro V4")
+st.title("📈 MASI Pro")
 
 # =====================================================
-# CACHE
+# CHARGEMENT
 # =====================================================
 
 @st.cache_data
@@ -27,7 +28,8 @@ def load_data(file):
 
     df = pd.read_excel(
         file,
-        sheet_name="Data_masi"
+        sheet_name="Data_masi",
+        engine="openpyxl"
     )
 
     df.columns = df.columns.str.strip()
@@ -44,7 +46,7 @@ def load_data(file):
 
     df = (
         df
-        .dropna()
+        .dropna(subset=["Date", "Close"])
         .sort_values("Date")
         .reset_index(drop=True)
     )
@@ -60,31 +62,29 @@ def add_indicators(df):
 
     df["SMA20"] = ta.trend.sma_indicator(
         df["Close"],
-        20
+        window=20
     )
 
     df["SMA50"] = ta.trend.sma_indicator(
         df["Close"],
-        50
+        window=50
     )
 
     df["SMA200"] = ta.trend.sma_indicator(
         df["Close"],
-        200
+        window=200
     )
 
     df["RSI"] = ta.momentum.rsi(
         df["Close"],
-        14
+        window=14
     )
 
     macd = ta.trend.MACD(df["Close"])
 
     df["MACD"] = macd.macd()
 
-    df["SIGNAL"] = (
-        macd.macd_signal()
-    )
+    df["SIGNAL"] = macd.macd_signal()
 
     df["HISTO"] = (
         df["MACD"]
@@ -92,56 +92,39 @@ def add_indicators(df):
     )
 
     bb = ta.volatility.BollingerBands(
-        df["Close"],
-        20,
-        2
+        close=df["Close"],
+        window=20,
+        window_dev=2
     )
 
-    df["BB_UP"] = (
-        bb.bollinger_hband()
-    )
-
-    df["BB_LOW"] = (
-        bb.bollinger_lband()
-    )
-
-    df["RET"] = np.log(
-        df["Close"]
-        / df["Close"].shift(1)
-    )
-
-    df["VOL20"] = (
-        df["RET"]
-        .rolling(20)
-        .std()
-        * np.sqrt(252)
-    )
+    df["BB_UP"] = bb.bollinger_hband()
+    df["BB_LOW"] = bb.bollinger_lband()
 
     return df
 
 
 # =====================================================
-# SUPPORTS
+# SUPPORTS / RESISTANCES
 # =====================================================
 
 def detect_sr(df):
 
     prices = df["Close"].values
 
-    mins = argrelextrema(
+    minima = argrelextrema(
         prices,
         np.less,
         order=5
     )[0]
 
-    maxs = argrelextrema(
+    maxima = argrelextrema(
         prices,
         np.greater,
         order=5
     )[0]
 
-    supports = prices[mins]
-    resistances = prices[maxs]
+    supports = prices[minima]
+    resistances = prices[maxima]
 
     return supports, resistances
 
@@ -150,52 +133,31 @@ def detect_sr(df):
 # SCORE
 # =====================================================
 
-def compute_score(df):
+def calculate_score(df):
+
+    score = 0
 
     last = df.iloc[-1]
 
-    score = 0
-    comments = []
-
     if last["Close"] > last["SMA200"]:
-        score += 20
-        comments.append(
-            "✅ Cours > SMA200"
-        )
+        score += 25
 
     if last["SMA50"] > last["SMA200"]:
-        score += 15
-        comments.append(
-            "✅ SMA50 > SMA200"
-        )
+        score += 25
 
     if last["SMA20"] > last["SMA50"]:
-        score += 10
-        comments.append(
-            "✅ SMA20 > SMA50"
-        )
+        score += 20
 
     if last["MACD"] > last["SIGNAL"]:
         score += 15
-        comments.append(
-            "✅ MACD haussier"
-        )
 
-    if 45 <= last["RSI"] <= 65:
+    if 45 <= last["RSI"] <= 70:
         score += 15
 
-    if last["VOL20"] < 0.20:
-        score += 10
-
-    golden = (
-        last["SMA50"]
-        > last["SMA200"]
+    return min(
+        score,
+        100
     )
-
-    if golden:
-        score += 10
-
-    return score, comments
 
 
 # =====================================================
@@ -204,7 +166,7 @@ def compute_score(df):
 
 def run_backtest(df):
 
-    buy = (
+    buy_signal = (
         (df["SMA20"] > df["SMA50"])
         &
         (df["MACD"] > df["SIGNAL"])
@@ -212,7 +174,7 @@ def run_backtest(df):
         (df["RSI"] > 50)
     )
 
-    sell = (
+    sell_signal = (
         (df["SMA20"] < df["SMA50"])
         |
         (df["MACD"] < df["SIGNAL"])
@@ -220,8 +182,8 @@ def run_backtest(df):
         (df["RSI"] < 45)
     )
 
-    position = 0
-    entry = 0
+    position = False
+    entry_price = None
 
     trades = []
 
@@ -229,174 +191,162 @@ def run_backtest(df):
 
         price = df["Close"].iloc[i]
 
-        if position == 0 and buy.ilocposition = 1
-            entry = price
+        if not position and buy_signal.iloc[i]:
 
-        elif position == 1 and sell.ilocperf = (
-                (price - entry)
-                / entry
+            position = True
+            entry_price = price
+
+        elif position and sell_signal.           (price - entry_price)
+                / entry_price
             ) * 100
 
             trades.append(perf)
 
-            position = 0
+            entry_price = None
+            position = False
 
     return trades
 
 
 # =====================================================
-# LOAD FILE
+# APPLICATION
 # =====================================================
 
-uploaded = st.file_uploader(
-    "Importer Excel",
+uploaded_file = st.file_uploader(
+    "Importer Data_masi.xlsx",
     type=["xlsx"]
 )
 
-if uploaded:
+if uploaded_file:
 
-    df = load_data(uploaded)
+    try:
 
-    df = add_indicators(df)
+        df = load_data(uploaded_file)
 
-    df = df.dropna()
+        df = add_indicators(df)
 
-    score, comments = compute_score(df)
+        df = df.dropna()
 
-    supports, resistances = detect_sr(df)
+        score = calculate_score(df)
 
-    # KPIs
+        supports, resistances = detect_sr(df)
 
-    st.header("🎯 Analyse")
+        last = df.iloc[-1]
 
-    c1, c2, c3 = st.columns(3)
+        st.header("🎯 Indicateurs")
 
-    c1.metric(
-        "Cours",
-        round(
-            df["Close"].iloc[-1],
-            2
-        )
-    )
+        c1, c2, c3 = st.columns(3)
 
-    c2.metric(
-        "RSI",
-        round(
-            df["RSI"].iloc[-1],
-            2
-        )
-    )
-
-    c3.metric(
-        "Score",
-        score
-    )
-
-    for x in comments:
-        st.write(x)
-
-    # Graphique
-
-    fig = go.Figure()
-
-    fig.add_trace(
-        go.Scatter(
-            x=df["Date"],
-            y=df["Close"],
-            name="Close"
-        )
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=df["Date"],
-            y=df["SMA20"],
-            name="SMA20"
-        )
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=df["Date"],
-            y=df["SMA50"],
-            name="SMA50"
-        )
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=df["Date"],
-            y=df["SMA200"],
-            name="SMA200"
-        )
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=df["Date"],
-            y=df["BB_UP"],
-            name="BB_UP"
-        )
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=df["Date"],
-            y=df["BB_LOW"],
-            name="BB_LOW"
-        )
-    )
-
-    st.plotly_chart(
-        fig,
-        use_container_width=True
-    )
-
-    # Backtest
-
-    st.header("📊 Backtest")
-
-    trades = run_backtest(df)
-
-    if len(trades):
-
-        winrate = (
-            np.mean(
-                np.array(trades) > 0
-            ) * 100
+        c1.metric(
+            "Cours",
+            round(last["Close"], 2)
         )
 
-        perf = sum(trades)
-
-        b1, b2 = st.columns(2)
-
-        b1.metric(
-            "Win Rate",
-            f"{winrate:.1f}%"
+        c2.metric(
+            "RSI",
+            round(last["RSI"], 2)
         )
 
-        b2.metric(
-            "Performance",
-            f"{perf:.2f}%"
+        c3.metric(
+            "Score",
+            score
         )
 
-    # Export
+        # =============================================
+        # GRAPHIQUE
+        # =============================================
 
-    buffer = BytesIO()
+        fig = go.Figure()
 
-    with pd.ExcelWriter(
-        buffer,
-        engine="openpyxl"
-    ) as writer:
-
-        df.to_excel(
-            writer,
-            sheet_name="MASI",
-            index=False
+        fig.add_trace(
+            go.Scatter(
+                x=df["Date"],
+                y=df["Close"],
+                name="Cours"
+            )
         )
 
-    st.download_button(
-        "📥 Télécharger",
-        buffer.getvalue(),
-        "MASI_PRO_V4.xlsx"
-    )
+        fig.add_trace(
+            go.Scatter(
+                x=df["Date"],
+                y=df["SMA20"],
+                name="SMA20"
+            )
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=df["Date"],
+                y=df["SMA50"],
+                name="SMA50"
+            )
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=df["Date"],
+                y=df["SMA200"],
+                name="SMA200"
+            )
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=df["Date"],
+                y=df["BB_UP"],
+                name="BB Haut"
+            )
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=df["Date"],
+                y=df["BB_LOW"],
+                name="BB Bas"
+            )
+        )
+
+        st.plotly_chart(
+            fig,
+            use_container_width=True
+        )
+
+        # =============================================
+        # BACKTEST
+        # =============================================
+
+        st.header("📊 Backtest")
+
+        trades = run_backtest(df)
+
+        if len(trades) > 0:
+
+            winrate = (
+                np.mean(
+                    np.array(trades) > 0
+                ) * 100
+            )
+
+            performance = sum(trades)
+
+            b1, b2, b3 = st.columns(3)
+
+            b1.metric(
+                "Trades",
+                len(trades)
+            )
+
+            b2.metric(
+                "Win Rate",
+                f"{winrate:.1f}%"
+            )
+
+            b3.metric(
+                "Performance",
+                f"{performance:.2f}%"
+            )
+
+        else:
+
+            st.warning(
+                "Aucun
