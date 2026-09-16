@@ -260,48 +260,7 @@ if uploaded_file:
             use_container_width=True
         )
 
-        # ==========================================
-        # BACKTEST
-        # ==========================================
-
-        st.header("📊 Backtest")
-
-        trades = run_backtest(df)
-
-        if len(trades) > 0:
-
-            winrate = (
-                np.mean(
-                    np.array(trades) > 0
-                ) * 100
-            )
-
-            performance = sum(trades)
-
-            b1, b2, b3 = st.columns(3)
-
-            b1.metric(
-                "Trades",
-                len(trades)
-            )
-
-            b2.metric(
-                "Win Rate",
-                f"{winrate:.1f}%"
-            )
-
-            b3.metric(
-                "Performance",
-                f"{performance:.2f}%"
-            )
-
-        else:
-
-            st.warning(
-                "Aucun trade détecté."
-            )
-
-        # ==========================================
+       # ==========================================
         # EXPORT
         # ==========================================
 
