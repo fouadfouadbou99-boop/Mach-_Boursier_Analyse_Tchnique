@@ -184,7 +184,7 @@ def run_backtest(df):
 
     for i in range(len(df)):
 
-        price = df["Close"].iloc[i]
+   price = df["Close"].iloc[i]
 
        if (not position) and buy_signal.iloc[i]:
 
