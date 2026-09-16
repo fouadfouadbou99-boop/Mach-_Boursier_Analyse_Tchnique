@@ -197,7 +197,18 @@ def run_backtest(df):
         if (not position) and buy_signal.iloc[i]:
 
             position = True
-            entry_price = f position and sell_signal.ilocperf = (
+                    if (not position) and buy_signal.ilocposition = True
+            entry_price = price
+
+        elif position and sell_signal.ilocperf = (
+                (price - entry_price)
+                / entry_price
+            ) * 100
+
+            trades.append(perf)
+
+            position = False
+            entry_price = None
                 (price - entry_price)
                 / entry_price
             ) * 100
