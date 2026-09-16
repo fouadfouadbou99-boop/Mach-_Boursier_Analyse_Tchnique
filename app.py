@@ -191,10 +191,9 @@ def run_backtest(df):
             position = True
   ice = price
 
-        elif position and sell_signal.iloc[i]:
-
-            perf = (
-                (price              / entry_price
+        elif position and sell_signal.ilocperf = (
+                (price - entry_price)
+                / entry_price
             ) * 100
 
             trades.append(perf)
