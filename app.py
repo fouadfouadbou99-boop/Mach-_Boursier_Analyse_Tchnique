@@ -61,11 +61,11 @@ d["RSI"] = 100 - (100 / (1 + rs))
 
 macd = ta.trend.MACD(d["Close"])
 
-    d["MACD"] = macd.macd()
-    d["SIGNAL"] = macd.macd_signal()
+d["MACD"] = macd.macd()
+d["SIGNAL"] = macd.macd_signal()
     d["HISTO"] = d["MACD"] - d["SIGNAL"]
 
-    bb = ta.volatility.BollingerBands(
+ bb = ta.volatility.BollingerBands(
         d["Close"],
         window=20,
         window_dev=2
