@@ -47,32 +47,22 @@ def prepare(df):
     d["SMA50"] = ta.trend.sma_indicator(d["Close"], 50)
     d["SMA200"] = ta.trend.sma_indicator(d["Close"], 200)
 
-    ret = d["Close"].pct_change()
+    d["RSI"] = ta.momentum.rsi(d["Close"], 14)
 
-gain = ret.clip(lower=0)
-loss = (-ret).clip(lower=0)
+    macd = ta.trend.MACD(d["Close"])
 
-avg_gain = gain.ewm(alpha=1/14, adjust=False).mean()
-avg_loss = loss.ewm(alpha=1/14, adjust=False).mean()
+    d["MACD"] = macd.macd()
+    d["SIGNAL"] = macd.macd_signal()
+    d["HISTO"] = d["MACD"] - d["SIGNAL"]
 
-rs = avg_gain / avg_loss
-
-d["RSI"] = 100 - (100 / (1 + rs))
-
-macd = ta.trend.MACD(d["Close"])
-
-d["MACD"] = macd.macd()
-d["SIGNAL"] = macd.macd_signal()
-d["HISTO"] = d["MACD"] - d["SIGNAL"]
-
-bb = ta.volatility.BollingerBands(
+    bb = ta.volatility.BollingerBands(
         d["Close"],
         window=20,
         window_dev=2
     )
 
-d["BB_UP"] = bb.bollinger_hband()
-d["BB_LOW"] = bb.bollinger_lband()
+    d["BB_UP"] = bb.bollinger_hband()
+    d["BB_LOW"] = bb.bollinger_lband()
 
     return d
 
