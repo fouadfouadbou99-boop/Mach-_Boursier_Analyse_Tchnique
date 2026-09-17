@@ -71,8 +71,8 @@ bb = ta.volatility.BollingerBands(
         window_dev=2
     )
 
-    d["BB_UP"] = bb.bollinger_hband()
-    d["BB_LOW"] = bb.bollinger_lband()
+d["BB_UP"] = bb.bollinger_hband()
+d["BB_LOW"] = bb.bollinger_lband()
 
     return d
 
