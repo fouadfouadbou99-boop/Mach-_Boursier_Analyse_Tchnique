@@ -47,7 +47,62 @@ def prepare(df):
     d["SMA50"] = ta.trend.sma_indicator(d["Close"], 50)
     d["SMA200"] = ta.trend.sma_indicator(d["Close"], 200)
 
-    d["RSI"] = ta.momentum.rsi(d["Close"], 14)
+    # ==========================================================
+# RSI identique au modèle Excel
+# ==========================================================
+
+def calculate_excel_rsi(close, period=14):
+
+    variation = close.pct_change()
+
+    gain = variation.clip(lower=0)
+    loss = (-variation.clip(upper=0))
+
+    avg_gain = gain.rolling(window=period).mean()
+    avg_loss = loss.rolling(window=period).mean()
+
+    rs = avg_gain / avg_loss
+
+    rsi = 100 - (100 / (1 + rs))
+
+    return rsi
+
+
+# ==========================================================
+# Calcul des indicateurs
+# ==========================================================
+
+@st.cache_data
+def prepare(df):
+
+    d = df.copy()
+
+    # Moyennes mobiles
+    d["SMA20"] = ta.trend.sma_indicator(d["Close"], 20)
+    d["SMA50"] = ta.trend.sma_indicator(d["Close"], 50)
+    d["SMA200"] = ta.trend.sma_indicator(d["Close"], 200)
+
+    # RSI identique au fichier Excel
+    d["RSI"] = calculate_excel_rsi(d["Close"], 14)
+
+    # MACD
+    macd = ta.trend.MACD(d["Close"])
+
+    d["MACD"] = macd.macd()
+    d["SIGNAL"] = macd.macd_signal()
+    d["HISTO"] = d["MACD"] - d["SIGNAL"]
+
+    # Bollinger
+    bb = ta.volatility.BollingerBands(
+        d["Close"],
+        window=20,
+        window_dev=2
+    )
+
+    d["BB_UP"] = bb.bollinger_hband()
+    d["BB_LOW"] = bb.bollinger_lband()
+
+    return d
 
     macd = ta.trend.MACD(d["Close"])
 
