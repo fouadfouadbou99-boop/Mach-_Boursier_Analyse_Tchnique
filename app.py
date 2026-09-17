@@ -58,7 +58,6 @@ avg_loss = loss.ewm(alpha=1/14, adjust=False).mean()
 rs = avg_gain / avg_loss
 
 d["RSI"] = 100 - (100 / (1 + rs))
-``
 
     macd = ta.trend.MACD(d["Close"])
 
