@@ -190,7 +190,7 @@ if uploaded:
 # Supports / Résistances par horizon temporel
 # ==========================================================
 
-cours_actuel = raw["Close"].iloc[-1]
+    cours_actuel = float(last["Close"])
 
 # ---------- 20 séances ----------
 support_20 = raw["Close"].tail(20).min()
