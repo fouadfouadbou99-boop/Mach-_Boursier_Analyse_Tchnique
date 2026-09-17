@@ -186,7 +186,7 @@ if uploaded:
         )
     )
 
-    # ======================================================
+# ======================================================
 # Supports / Résistances par horizon temporel
 # ======================================================
 
@@ -287,8 +287,13 @@ resistance = resistance_60
         k[2].metric("6M", f"{r6:.2f}%")
         k[3].metric("1Y", f"{r12:.2f}%")
 
-        st.write(f"Support : {support:.2f}")
-        st.write(f"Résistance : {resistance:.2f}")
+ st.dataframe(
+    supports_resistances.style.format("{:,.2f}"),
+    use_container_width=True
+)
+
+st.write(f"Support principal (60 séances) : {support:,.2f}")
+st.write(f"Résistance principale (60 séances) : {resistance:,.2f}")
 
         gauge = go.Figure(
             go.Indicator(
@@ -507,9 +512,14 @@ Le RSI ressort à {last['RSI']:.2f}.
 
 Les niveaux techniques à surveiller sont :
 
-• Support : {support:.2f}
+• Support 20 séances : {support_20:.2f}
+• Support 60 séances : {support_60:.2f}
+• Support 200 séances : {support_200:.2f}
 
-• Résistance : {resistance:.2f}
+• Résistance 20 séances : {resistance_20:.2f}
+• Résistance 60 séances : {resistance_60:.2f}
+• Résistance 200 séances : {resistance_200:.2f}
+
 
 ### Recommandation au Comité
 
