@@ -186,35 +186,65 @@ if uploaded:
         )
     )
 
-    # ======================================================
-    # Support / Résistance
-    # ======================================================
+   # ==========================================================
+# Supports / Résistances par horizon temporel
+# ==========================================================
 
-    prices = raw["Close"].values
+cours_actuel = raw["Close"].iloc[-1]
 
-    mins = argrelextrema(
-        prices,
-        np.less,
-        order=5
-    )[0]
+# ---------- 20 séances ----------
+support_20 = raw["Close"].tail(20).min()
+resistance_20 = raw["Close"].tail(20).max()
 
-    maxs = argrelextrema(
-        prices,
-        np.greater,
-        order=5
-    )[0]
+distance_support_20 = cours_actuel - support_20
+distance_resistance_20 = resistance_20 - cours_actuel
 
-    support = (
-        float(prices[mins][-1])
-        if len(mins)
-        else np.nan
-    )
+# ---------- 60 séances ----------
+support_60 = raw["Close"].tail(60).min()
+resistance_60 = raw["Close"].tail(60).max()
 
-    resistance = (
-        float(prices[maxs][-1])
-        if len(maxs)
-        else np.nan
-    )
+distance_support_60 = cours_actuel - support_60
+distance_resistance_60 = resistance_60 - cours_actuel
+
+# ---------- 200 séances ----------
+support_200 = raw["Close"].tail(200).min()
+resistance_200 = raw["Close"].tail(200).max()
+
+distance_support_200 = cours_actuel - support_200
+distance_resistance_200 = resistance_200 - cours_actuel
+
+# Tableau récapitulatif
+
+supports_resistances = pd.DataFrame({
+    "20 Jours": [
+        support_20,
+        distance_support_20,
+        cours_actuel,
+        resistance_20,
+        distance_resistance_20
+    ],
+    "60 Jours": [
+        support_60,
+        distance_support_60,
+        cours_actuel,
+        resistance_60,
+        distance_resistance_60
+    ],
+    "200 Jours": [
+        support_200,
+        distance_support_200,
+        cours_actuel,
+        resistance_200,
+        distance_resistance_200
+    ]
+},
+index=[
+    "Support",
+    "Distance au support",
+    "Cours actuel",
+    "Résistance",
+    "Distance à la résistance"
+])
 
     # ======================================================
     # Onglets
