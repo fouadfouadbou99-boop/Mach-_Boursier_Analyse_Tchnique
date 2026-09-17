@@ -63,7 +63,7 @@ macd = ta.trend.MACD(d["Close"])
 
 d["MACD"] = macd.macd()
 d["SIGNAL"] = macd.macd_signal()
-    d["HISTO"] = d["MACD"] - d["SIGNAL"]
+d["HISTO"] = d["MACD"] - d["SIGNAL"]
 
  bb = ta.volatility.BollingerBands(
         d["Close"],
