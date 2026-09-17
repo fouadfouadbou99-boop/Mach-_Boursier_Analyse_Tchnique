@@ -47,7 +47,18 @@ def prepare(df):
     d["SMA50"] = ta.trend.sma_indicator(d["Close"], 50)
     d["SMA200"] = ta.trend.sma_indicator(d["Close"], 200)
 
-    d["RSI"] = ta.momentum.rsi(d["Close"], 14)
+    ret = d["Close"].pct_change()
+
+gain = ret.clip(lower=0)
+loss = (-ret).clip(lower=0)
+
+avg_gain = gain.ewm(alpha=1/14, adjust=False).mean()
+avg_loss = loss.ewm(alpha=1/14, adjust=False).mean()
+
+rs = avg_gain / avg_loss
+
+d["RSI"] = 100 - (100 / (1 + rs))
+``
 
     macd = ta.trend.MACD(d["Close"])
 
