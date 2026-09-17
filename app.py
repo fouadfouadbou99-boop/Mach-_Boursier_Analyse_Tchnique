@@ -72,16 +72,6 @@ def calculate_excel_rsi(close, period=14):
 # Calcul des indicateurs
 # ==========================================================
 
-@st.cache_data
-def prepare(df):
-
-    d = df.copy()
-
-    # Moyennes mobiles
-    d["SMA20"] = ta.trend.sma_indicator(d["Close"], 20)
-    d["SMA50"] = ta.trend.sma_indicator(d["Close"], 50)
-    d["SMA200"] = ta.trend.sma_indicator(d["Close"], 200)
-
     # RSI identique au fichier Excel
     d["RSI"] = calculate_excel_rsi(d["Close"], 14)
 
