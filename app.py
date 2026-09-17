@@ -72,6 +72,16 @@ def calculate_excel_rsi(close, period=14):
 # Calcul des indicateurs
 # ==========================================================
 
+@st.cache_data
+def prepare(df):
+
+    d = df.copy()
+
+    # Moyennes mobiles
+    d["SMA20"] = ta.trend.sma_indicator(d["Close"], 20)
+    d["SMA50"] = ta.trend.sma_indicator(d["Close"], 50)
+    d["SMA200"] = ta.trend.sma_indicator(d["Close"], 200)
+
     # RSI identique au fichier Excel
     d["RSI"] = calculate_excel_rsi(d["Close"], 14)
 
@@ -176,65 +186,35 @@ if uploaded:
         )
     )
 
-# ======================================================
-# Supports / Résistances par horizon temporel
-# ======================================================
+    # ======================================================
+    # Support / Résistance
+    # ======================================================
 
-cours_actuel = float(raw["Close"].iloc[-1])
+    prices = raw["Close"].values
 
-# 20 séances
-support_20 = float(raw["Close"].tail(20).min())
-resistance_20 = float(raw["Close"].tail(20).max())
+    mins = argrelextrema(
+        prices,
+        np.less,
+        order=5
+    )[0]
 
-distance_support_20 = cours_actuel - support_20
-distance_resistance_20 = resistance_20 - cours_actuel
+    maxs = argrelextrema(
+        prices,
+        np.greater,
+        order=5
+    )[0]
 
-# 60 séances
-support_60 = float(raw["Close"].tail(60).min())
-resistance_60 = float(raw["Close"].tail(60).max())
+    support = (
+        float(prices[mins][-1])
+        if len(mins)
+        else np.nan
+    )
 
-distance_support_60 = cours_actuel - support_60
-distance_resistance_60 = resistance_60 - cours_actuel
-
-# 200 séances
-support_200 = float(raw["Close"].tail(200).min())
-resistance_200 = float(raw["Close"].tail(200).max())
-
-distance_support_200 = cours_actuel - support_200
-distance_resistance_200 = resistance_200 - cours_actuel
-
-supports_resistances = pd.DataFrame(
-    {
-        "20 Jours": [
-            support_20,
-            distance_support_20,
-            resistance_20,
-            distance_resistance_20,
-        ],
-        "60 Jours": [
-            support_60,
-            distance_support_60,
-            resistance_60,
-            distance_resistance_60,
-        ],
-        "200 Jours": [
-            support_200,
-            distance_support_200,
-            resistance_200,
-            distance_resistance_200,
-        ],
-    },
-    index=[
-        "Support",
-        "Distance au support",
-        "Résistance",
-        "Distance à la résistance",
-    ],
-)
-
-# niveaux principaux utilisés dans le dashboard
-support = support_60
-resistance = resistance_60
+    resistance = (
+        float(prices[maxs][-1])
+        if len(maxs)
+        else np.nan
+    )
 
     # ======================================================
     # Onglets
@@ -277,13 +257,8 @@ resistance = resistance_60
         k[2].metric("6M", f"{r6:.2f}%")
         k[3].metric("1Y", f"{r12:.2f}%")
 
- st.dataframe(
-    supports_resistances.style.format("{:,.2f}"),
-    use_container_width=True
-)
-
-st.write(f"Support principal (60 séances) : {support:,.2f}")
-st.write(f"Résistance principale (60 séances) : {resistance:,.2f}")
+        st.write(f"Support : {support:.2f}")
+        st.write(f"Résistance : {resistance:.2f}")
 
         gauge = go.Figure(
             go.Indicator(
@@ -502,14 +477,9 @@ Le RSI ressort à {last['RSI']:.2f}.
 
 Les niveaux techniques à surveiller sont :
 
-• Support 20 séances : {support_20:.2f}
-• Support 60 séances : {support_60:.2f}
-• Support 200 séances : {support_200:.2f}
+• Support : {support:.2f}
 
-• Résistance 20 séances : {resistance_20:.2f}
-• Résistance 60 séances : {resistance_60:.2f}
-• Résistance 200 séances : {resistance_200:.2f}
-
+• Résistance : {resistance:.2f}
 
 ### Recommandation au Comité
 
