@@ -59,7 +59,7 @@ rs = avg_gain / avg_loss
 
 d["RSI"] = 100 - (100 / (1 + rs))
 
-    macd = ta.trend.MACD(d["Close"])
+macd = ta.trend.MACD(d["Close"])
 
     d["MACD"] = macd.macd()
     d["SIGNAL"] = macd.macd_signal()
