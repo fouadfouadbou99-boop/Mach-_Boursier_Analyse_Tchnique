@@ -283,15 +283,15 @@ if uploaded:
     
         s1, s2, s3 = st.columns(3)
 
-        with s1:
+with s1:
             st.metric("Support 20j", f"{support_20:.2f}")
             st.metric("Résistance 20j", f"{resistance_20:.2f}")
 
-        with s2:
+with s2:
             st.metric("Support 60j", f"{support_60:.2f}")
             st.metric("Résistance 60j", f"{resistance_60:.2f}")
 
-        with s3:
+with s3:
             st.metric("Support 200j", f"{support_200:.2f}")
             st.metric("Résistance 200j", f"{resistance_200:.2f}")
 
