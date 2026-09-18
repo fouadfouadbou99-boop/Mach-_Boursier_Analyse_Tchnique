@@ -187,34 +187,33 @@ if uploaded:
     )
 
     # ======================================================
-    # Support / Résistance
-    # ======================================================
+# Support / Résistance
+# ======================================================
+prices = raw["Close"].values
 
-    prices = raw["Close"].values
+mins = argrelextrema(
+    prices,
+    np.less,
+    order=5
+)[0]
 
-    mins = argrelextrema(
-        prices,
-        np.less,
-        order=5
-    )[0]
+maxs = argrelextrema(
+    prices,
+    np.greater,
+    order=5
+)[0]
 
-    maxs = argrelextrema(
-        prices,
-        np.greater,
-        order=5
-    )[0]
+support = (
+    float(prices[mins][-1])
+    if len(mins)
+    else np.nan
+)
 
-    support = (
-        float(prices[mins][-1])
-        if len(mins)
-        else np.nan
-    )
-
-    resistance = (
-        float(prices[maxs][-1])
-        if len(maxs)
-        else np.nan
-    )
+resistance = (
+    float(prices[maxs][-1])
+    if len(maxs)
+    else np.nan
+)
 
     # ======================================================
     # Onglets
