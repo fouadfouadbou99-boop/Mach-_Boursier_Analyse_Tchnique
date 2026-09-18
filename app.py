@@ -262,38 +262,38 @@ if uploaded:
     # DASHBOARD
     # ======================================================
 
-    with tab1:
+   with tab1:
 
-        c1, c2, c3, c4, c5 = st.columns(5)
+    c1, c2, c3, c4, c5 = st.columns(5)
 
-       c1.metric("Cours", f"{last['Close'\]:.2ff}")
-        c2.metric("RSI", f"{last['RSI'\]:.2f}")
-        c3.metric("Score", f"{score}/100")
-        c4.metric("YTD", f"{ytd:.2f}%")
-        c5.metric("Signal", reco)
+    c1.metric("Cours", f"{last.Close:.2f}")
+    c2.metric("RSI", f"{last.RSI:.2f}")
+    c3.metric("Score", f"{score}/100")
+    c4.metric("YTD", f"{ytd:.2f}%")
+    c5.metric("Signal", reco)
 
-        p1, p2, p3, p4 = st.columns(4)
+    p1, p2, p3, p4 = st.columns(4)
 
-        p1.metric("1M", f"{r1:.2f}%")
-        p2.metric("3M", f"{r3:.2f}%")
-        p3.metric("6M", f"{r6:.2f}%")
-        p4.metric("1Y", f"{r12:.2f}%")
+    p1.metric("1M", f"{r1:.2f}%")
+    p2.metric("3M", f"{r3:.2f}%")
+    p3.metric("6M", f"{r6:.2f}%")
+    p4.metric("1Y", f"{r12:.2f}%")
 
-        st.subheader("Supports / Résistances")
+    st.subheader("Supports / Résistances")
 
-        s1, s2, s3 = st.columns(3)
+    s1, s2, s3 = st.columns(3)
 
-        with s1:
-            st.metric("Support 20j", f"{support_20:.2f}")
-            st.metric("Résistance 20j", f"{resistance_20:.2f}")
+    with s1:
+        st.metric("Support 20j", f"{support_20:.2f}")
+        st.metric("Résistance 20j", f"{resistance_20:.2f}")
 
-        with s2:
-            st.metric("Support 60j", f"{support_60:.2f}")
-            st.metric("Résistance 60j", f"{resistance_60:.2f}")
+    with s2:
+        st.metric("Support 60j", f"{support_60:.2f}")
+        st.metric("Résistance 60j", f"{resistance_60:.2f}")
 
-        with s3:
-            st.metric("Support 200j", f"{support_200:.2f}")
-            st.metric("Résistance 200j", f"{resistance_200:.2f}")
+    with s3:
+        st.metric("Support 200j", f"{support_200:.2f}")
+        st.metric("Résistance 200j", f"{resistance_200:.2f}")
 
     # ======================================================
     # ANALYSE
