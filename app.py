@@ -186,34 +186,31 @@ if uploaded:
         )
     )
 
-    # ======================================================
-# Support / Résistance
 # ======================================================
-prices = raw["Close"].values
+# Supports / Résistances Multi-Horizons
+# ======================================================
 
-mins = argrelextrema(
-    prices,
-    np.less,
-    order=5
-)[0]
+def get_support_resistance(data, horizon):
+    """
+    Support = plus bas sur l'horizon
+    Résistance = plus haut sur l'horizon
+    """
 
-maxs = argrelextrema(
-    prices,
-    np.greater,
-    order=5
-)[0]
+    subset = data.tail(min(horizon, len(data)))
 
-support = (
-    float(prices[mins][-1])
-    if len(mins)
-    else np.nan
-)
+    support = subset["Close"].min()
+    resistance = subset["Close"].max()
 
-resistance = (
-    float(prices[maxs][-1])
-    if len(maxs)
-    else np.nan
-)
+    return support, resistance
+
+
+support_20, resistance_20 = get_support_resistance(df, 20)
+support_60, resistance_60 = get_support_resistance(df, 60)
+support_200, resistance_200 = get_support_resistance(df, 200)
+
+# Niveaux de référence principaux
+support = support_60
+resistance = resistance_60
 
     # ======================================================
     # Onglets
