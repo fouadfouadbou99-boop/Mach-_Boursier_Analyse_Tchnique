@@ -1,34 +1,27 @@
-# ==========================================================
-# MASI PRO V8
-# ==========================================================
+# MASI PRO V7
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+from io import BytesIO
+from scipy.signal import argrelextrema
 import ta
 
-from io import BytesIO
-
-# ==========================================================
-# CONFIG
-# ==========================================================
-
 st.set_page_config(
-    page_title="MASI PRO V8",
+    page_title="MASI PRO V7",
     page_icon="📈",
     layout="wide"
 )
 
-st.title("📈 MASI PRO V8")
+st.title("📈 MASI PRO V7")
 
 # ==========================================================
-# CHARGEMENT
+# Chargement des données
 # ==========================================================
 
 @st.cache_data
 def load_data(file):
-
     df = pd.read_excel(
         file,
         sheet_name="Data_masi",
@@ -36,16 +29,26 @@ def load_data(file):
     )
 
     df.columns = df.columns.str.strip()
-
     df["Date"] = pd.to_datetime(df["Date"])
     df["Close"] = pd.to_numeric(df["Close"])
 
-    df = df.sort_values("Date")
-
-    return df.reset_index(drop=True)
+    return df.sort_values("Date").reset_index(drop=True)
 
 # ==========================================================
-# RSI
+# Calcul des indicateurs
+# ==========================================================
+
+@st.cache_data
+def prepare(df):
+
+    d = df.copy()
+
+    d["SMA20"] = ta.trend.sma_indicator(d["Close"], 20)
+    d["SMA50"] = ta.trend.sma_indicator(d["Close"], 50)
+    d["SMA200"] = ta.trend.sma_indicator(d["Close"], 200)
+
+    # ==========================================================
+# RSI identique au modèle Excel
 # ==========================================================
 
 def calculate_excel_rsi(close, period=14):
@@ -55,8 +58,8 @@ def calculate_excel_rsi(close, period=14):
     gain = variation.clip(lower=0)
     loss = (-variation.clip(upper=0))
 
-    avg_gain = gain.rolling(period).mean()
-    avg_loss = loss.rolling(period).mean()
+    avg_gain = gain.rolling(window=period).mean()
+    avg_loss = loss.rolling(window=period).mean()
 
     rs = avg_gain / avg_loss
 
@@ -64,8 +67,9 @@ def calculate_excel_rsi(close, period=14):
 
     return rsi
 
+
 # ==========================================================
-# INDICATEURS
+# Calcul des indicateurs
 # ==========================================================
 
 @st.cache_data
@@ -73,38 +77,38 @@ def prepare(df):
 
     d = df.copy()
 
-    d["SMA20"] = ta.trend.sma_indicator(
-        d["Close"],
-        window=20
-    )
+    # Moyennes mobiles
+    d["SMA20"] = ta.trend.sma_indicator(d["Close"], 20)
+    d["SMA50"] = ta.trend.sma_indicator(d["Close"], 50)
+    d["SMA200"] = ta.trend.sma_indicator(d["Close"], 200)
 
-    d["SMA50"] = ta.trend.sma_indicator(
-        d["Close"],
-        window=50
-    )
+    # RSI identique au fichier Excel
+    d["RSI"] = calculate_excel_rsi(d["Close"], 14)
 
-    d["SMA200"] = ta.trend.sma_indicator(
-        d["Close"],
-        window=200
-    )
-
-    d["RSI"] = calculate_excel_rsi(
-        d["Close"],
-        14
-    )
-
-    macd = ta.trend.MACD(
-        d["Close"]
-    )
+    # MACD
+    macd = ta.trend.MACD(d["Close"])
 
     d["MACD"] = macd.macd()
-
     d["SIGNAL"] = macd.macd_signal()
+    d["HISTO"] = d["MACD"] - d["SIGNAL"]
 
-    d["HISTO"] = (
-        d["MACD"]
-        - d["SIGNAL"]
+    # Bollinger
+    bb = ta.volatility.BollingerBands(
+        d["Close"],
+        window=20,
+        window_dev=2
     )
+
+    d["BB_UP"] = bb.bollinger_hband()
+    d["BB_LOW"] = bb.bollinger_lband()
+
+    return d
+
+    macd = ta.trend.MACD(d["Close"])
+
+    d["MACD"] = macd.macd()
+    d["SIGNAL"] = macd.macd_signal()
+    d["HISTO"] = d["MACD"] - d["SIGNAL"]
 
     bb = ta.volatility.BollingerBands(
         d["Close"],
@@ -118,42 +122,7 @@ def prepare(df):
     return d
 
 # ==========================================================
-# SUPPORTS / RESISTANCES
-# ==========================================================
-
-def support_resistance(df, horizon):
-
-    subset = df.tail(
-        min(horizon, len(df))
-    )
-
-    support = float(
-        subset["Close"].min()
-    )
-
-    resistance = float(
-        subset["Close"].max()
-    )
-
-    return support, resistance
-
-# ==========================================================
-# PERFORMANCE
-# ==========================================================
-
-def performance(df, days):
-
-    if len(df) <= days:
-        return np.nan
-
-    current = df.iloc[-1]["Close"]
-
-    old = df.iloc[-days]["Close"]
-
-    return ((current / old) - 1) * 100
-
-# ==========================================================
-# UPLOAD
+# Import fichier
 # ==========================================================
 
 uploaded = st.file_uploader(
@@ -165,141 +134,154 @@ if uploaded:
 
     raw = load_data(uploaded)
 
-    df = prepare(raw)
-
-    df = df.dropna().reset_index(drop=True)
+    df = prepare(raw).dropna().reset_index(drop=True)
 
     last = df.iloc[-1]
 
-    # ======================================================
-    # YTD
-    # ======================================================
-
-    previous_year = raw[
+    ref = raw[
         raw["Date"] <= pd.Timestamp(
             year=last["Date"].year - 1,
             month=12,
             day=31
         )
-    ]
+    ].iloc[-1]
 
-    if len(previous_year):
+    ytd = ((last["Close"] / ref["Close"]) - 1) * 100
 
-        ref = previous_year.iloc[-1]
-
-        ytd = (
+    def perf(days):
+        return (
             (
                 last["Close"]
                 /
-                ref["Close"]
+                df.iloc[max(0, len(df) - days)]["Close"]
             ) - 1
-        ) * 100
+        ) * 100 if len(df) > days else np.nan
 
-    else:
-
-        ref = raw.iloc[0]
-
-        ytd = np.nan
-
-    # ======================================================
-    # PERFORMANCE
-    # ======================================================
-
-    r1 = performance(df, 21)
-    r3 = performance(df, 63)
-    r6 = performance(df, 126)
-    r12 = performance(df, 252)
+    r1 = perf(21)
+    r3 = perf(63)
+    r6 = perf(126)
+    r12 = perf(252)
 
     # ======================================================
-    # SCORE
+    # Score
     # ======================================================
 
     score = 0
 
     score += 25 if last["Close"] > last["SMA200"] else 0
-
     score += 25 if last["SMA50"] > last["SMA200"] else 0
-
     score += 20 if last["SMA20"] > last["SMA50"] else 0
-
     score += 15 if last["MACD"] > last["SIGNAL"] else 0
-
-    score += (
-        15
-        if last["RSI"] > 60
-        else (10 if last["RSI"] > 40 else 5)
+    score += 15 if last["RSI"] > 60 else (
+        10 if last["RSI"] > 40 else 5
     )
 
-    if score >= 75:
-        reco = "✅ ACHAT"
-    elif score >= 45:
-        reco = "⚠️ SURVEILLER"
-    else:
-        reco = "❌ ATTENDRE"
+    reco = (
+        "✅ ACHAT"
+        if score >= 75
+        else (
+            "⚠️ SURVEILLER"
+            if score >= 45
+            else "❌ ATTENDRE"
+        )
+    )
 
     # ======================================================
-    # S/R
+    # Support / Résistance
     # ======================================================
 
-    support_20, resistance_20 = support_resistance(df, 20)
+    prices = raw["Close"].values
 
-    support_60, resistance_60 = support_resistance(df, 60)
+    mins = argrelextrema(
+        prices,
+        np.less,
+        order=5
+    )[0]
 
-    support_200, resistance_200 = support_resistance(df, 200)
+    maxs = argrelextrema(
+        prices,
+        np.greater,
+        order=5
+    )[0]
+
+    support = (
+        float(prices[mins][-1])
+        if len(mins)
+        else np.nan
+    )
+
+    resistance = (
+        float(prices[maxs][-1])
+        if len(maxs)
+        else np.nan
+    )
 
     # ======================================================
-    # TABS
+    # Onglets
     # ======================================================
 
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "Dashboard",
-        "Analyse",
-        "Export",
-        "Comité"
-    ])
+    t1, t2, t3, t4, t5 = st.tabs(
+        [
+            "Dashboard",
+            "Analyse",
+            "Signaux",
+            "Export",
+            "Comité"
+        ]
+    )
 
     # ======================================================
     # DASHBOARD
     # ======================================================
 
-    with tab1:
+    with t1:
 
-        c1, c2, c3, c4, c5 = st.columns(5)
+        c = st.columns(5)
 
-        c1.metric("Cours", f"{last['Close']:.2f}")
-        c2.metric("RSI", f"{last['RSI']:.2f}")
-        c3.metric("Score", f"{score}/100")
-        c4.metric("YTD", f"{ytd:.2f}%")
-        c5.metric("Signal", reco)
+        c[0].metric("Cours", f"{last.Close:.2f}")
+        c[1].metric("RSI", f"{last.RSI:.2f}")
+        c[2].metric("Score", f"{score}/100")
+        c[3].metric("YTD", f"{ytd:.2f}%")
+        c[4].metric("Recommandation", reco)
 
-        p1, p2, p3, p4 = st.columns(4)
+        st.info(
+            f"Référence YTD : "
+            f"{ref['Date'].strftime('%d/%m/%Y')} | "
+            f"{ref['Close']:.2f}"
+        )
 
-        p1.metric("1M", f"{r1:.2f}%")
-        p2.metric("3M", f"{r3:.2f}%")
-        p3.metric("6M", f"{r6:.2f}%")
-        p4.metric("1Y", f"{r12:.2f}%")
+        k = st.columns(4)
 
-        st.subheader("Supports / Résistances")
+        k[0].metric("1M", f"{r1:.2f}%")
+        k[1].metric("3M", f"{r3:.2f}%")
+        k[2].metric("6M", f"{r6:.2f}%")
+        k[3].metric("1Y", f"{r12:.2f}%")
 
-        s1, s2, s3 = st.columns(3)
+        st.write(f"Support : {support:.2f}")
+        st.write(f"Résistance : {resistance:.2f}")
 
-        with s1:
-            st.metric("Support 20j", f"{support_20:.2f}")
-            st.metric("Résistance 20j", f"{resistance_20:.2f}")
+        gauge = go.Figure(
+            go.Indicator(
+                mode="gauge+number",
+                value=score,
+                gauge={
+                    "axis": {
+                        "range": [0, 100]
+                    }
+                }
+            )
+        )
 
-        with s2:
-            st.metric("Support 60j", f"{support_60:.2f}")
-            st.metric("Résistance 60j", f"{resistance_60:.2f}")
-
-        with s3:
-            st.metric("Support 200j", f"{support_200:.2f}")
-            st.metric("Résistance 200j", f"{resistance_200:.2f}")
+        st.plotly_chart(
+            gauge,
+            use_container_width=True
+        )
 
     # ======================================================
     # ANALYSE
     # ======================================================
 
-    with tab2:
+    with t2:
 
         fig = go.Figure()
 
@@ -325,9 +307,11 @@ if uploaded:
             use_container_width=True
         )
 
-        rsi_fig = go.Figure()
+    # RSI
 
-        rsi_fig.add_trace(
+        r = go.Figure()
+
+        r.add_trace(
             go.Scatter(
                 x=df["Date"],
                 y=df["RSI"],
@@ -336,7 +320,73 @@ if uploaded:
         )
 
         st.plotly_chart(
-            rsi_fig,
+            r,
+            use_container_width=True
+        )
+
+    # MACD
+
+        m = go.Figure()
+
+        m.add_trace(
+            go.Bar(
+                x=df["Date"],
+                y=df["HISTO"],
+                name="Histogramme"
+            )
+        )
+
+        m.add_trace(
+            go.Scatter(
+                x=df["Date"],
+                y=df["MACD"],
+                name="MACD"
+            )
+        )
+
+        m.add_trace(
+            go.Scatter(
+                x=df["Date"],
+                y=df["SIGNAL"],
+                name="Signal"
+            )
+        )
+
+        st.plotly_chart(
+            m,
+            use_container_width=True
+        )
+
+    # ======================================================
+    # SIGNAUX
+    # ======================================================
+
+    with t3:
+
+        radar = go.Figure()
+
+        radar.add_trace(
+            go.Scatterpolar(
+                r=[
+                    score / 4,
+                    25 if last["SMA50"] > last["SMA200"] else 0,
+                    20 if last["SMA20"] > last["SMA50"] else 0,
+                    15 if last["MACD"] > last["SIGNAL"] else 0,
+                    max(5, min(15, last["RSI"] / 5))
+                ],
+                theta=[
+                    "Prix",
+                    "LT",
+                    "MT",
+                    "MACD",
+                    "RSI"
+                ],
+                fill="toself"
+            )
+        )
+
+        st.plotly_chart(
+            radar,
             use_container_width=True
         )
 
@@ -344,81 +394,107 @@ if uploaded:
     # EXPORT
     # ======================================================
 
-    with tab3:
+    with t4:
 
-        buffer = BytesIO()
+        buf = BytesIO()
 
         with pd.ExcelWriter(
-            buffer,
+            buf,
             engine="openpyxl"
-        ) as writer:
+        ) as w:
 
             df.to_excel(
-                writer,
+                w,
                 sheet_name="Analyse",
                 index=False
             )
 
             pd.DataFrame({
-                "Score": [score],
+                "Date_ref": [ref["Date"]],
+                "Cours_ref": [ref["Close"]],
                 "YTD": [ytd],
-                "Support20": [support_20],
-                "Resistance20": [resistance_20],
-                "Support60": [support_60],
-                "Resistance60": [resistance_60],
-                "Support200": [support_200],
-                "Resistance200": [resistance_200]
+                "Score": [score]
             }).to_excel(
-                writer,
+                w,
                 sheet_name="Dashboard",
                 index=False
             )
 
         st.download_button(
-            "Télécharger le rapport",
-            data=buffer.getvalue(),
-            file_name="MASI_PRO_V8.xlsx"
+            "Télécharger rapport",
+            buf.getvalue(),
+            "MASI_PRO_V7.xlsx"
         )
 
     # ======================================================
-    # COMITE
+    # COMITE D'INVESTISSEMENT
     # ======================================================
 
-    with tab4:
+    with t5:
+
+        if score >= 80:
+            conviction = "ÉLEVÉE"
+            orientation = "CONSTRUCTIVE"
+            feu = "🟢"
+
+        elif score >= 60:
+            conviction = "MODÉRÉE"
+            orientation = "FAVORABLE"
+            feu = "🟢"
+
+        elif score >= 45:
+            conviction = "PRUDENTE"
+            orientation = "MITIGÉE"
+            feu = "🟠"
+
+        else:
+            conviction = "FAIBLE"
+            orientation = "DÉFENSIVE"
+            feu = "🔴"
+
+        st.subheader("Note destinée au Comité")
 
         commentaire = f"""
-### Synthèse Comité
+### Synthèse Exécutive
 
-Date : {last['Date'].strftime('%d/%m/%Y')}
+À la date du {last['Date'].strftime('%d/%m/%Y')}, l'indice MASI clôture à
+{last['Close']:.2f} points et affiche une performance annuelle de
+{ytd:.2f} %.
 
-Cours : {last['Close']:.2f}
+La tendance de fond demeure {'favorable' if last['Close'] > last['SMA200'] else 'moins favorable'},
+le marché évoluant {'au-dessus' if last['Close'] > last['SMA200'] else 'en dessous'}
+de sa moyenne mobile à 200 séances.
 
-Performance YTD : {ytd:.2f} %
+Le score MASI PRO ressort à {score}/100,
+correspondant à un niveau de conviction :
 
-Score Technique : {score}/100
+{feu} {conviction}
 
-Recommandation :
-{reco}
+Les indicateurs de momentum demeurent
+{'favorablement orientés' if last['MACD'] > last['SIGNAL'] else 'plus mitigés'}.
 
-Supports / Résistances :
+Le RSI ressort à {last['RSI']:.2f}.
 
-20 jours :
-- Support : {support_20:.2f}
-- Résistance : {resistance_20:.2f}
+Les niveaux techniques à surveiller sont :
 
-60 jours :
-- Support : {support_60:.2f}
-- Résistance : {resistance_60:.2f}
+• Support : {support:.2f}
 
-200 jours :
-- Support : {support_200:.2f}
-- Résistance : {resistance_200:.2f}
+• Résistance : {resistance:.2f}
+
+### Recommandation au Comité
+
+L'évaluation globale demeure {orientation.lower()}.
+
+{"Il est proposé de maintenir une exposition favorable au marché actions marocain et d'envisager un renforcement sélectif des positions." if score >= 80 else
+"Il est proposé de conserver les positions actuelles tout en maintenant une vigilance sur les niveaux techniques clés." if score >= 60 else
+"Une approche prudente est recommandée dans l'attente d'une amélioration des indicateurs techniques." if score >= 45 else
+"Une posture défensive est recommandée jusqu'à l'apparition de signaux de marché plus favorables."}
 """
 
         st.markdown(commentaire)
 
         st.download_button(
-            "📄 Télécharger la note",
+            "📄 Télécharger la note Comité",
             commentaire,
             "Note_Comite_MASI.txt"
         )
