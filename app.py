@@ -253,8 +253,39 @@ resistance = resistance_60
         k[2].metric("6M", f"{r6:.2f}%")
         k[3].metric("1Y", f"{r12:.2f}%")
 
-        st.write(f"Support : {support:.2f}")
-        st.write(f"Résistance : {resistance:.2f}")
+        st.subheader("Niveaux Techniques")
+
+niv1, niv2, niv3 = st.columns(3)
+
+with niv1:
+    st.metric(
+        "Support 20j",
+        f"{support_20:.2f}"
+    )
+    st.metric(
+        "Résistance 20j",
+        f"{resistance_20:.2f}"
+    )
+
+with niv2:
+    st.metric(
+        "Support 60j",
+        f"{support_60:.2f}"
+    )
+    st.metric(
+        "Résistance 60j",
+        f"{resistance_60:.2f}"
+    )
+
+with niv3:
+    st.metric(
+        "Support 200j",
+        f"{support_200:.2f}"
+    )
+    st.metric(
+        "Résistance 200j",
+        f"{resistance_200:.2f}"
+    )
 
         gauge = go.Figure(
             go.Indicator(
