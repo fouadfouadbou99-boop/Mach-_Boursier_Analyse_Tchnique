@@ -186,31 +186,35 @@ if uploaded:
         )
     )
 
-# ======================================================
-# Supports / Résistances Multi-Horizons
-# ======================================================
+    # ======================================================
+    # Support / Résistance
+    # ======================================================
 
-def get_support_resistance(data, horizon):
-    """
-    Support = plus bas sur l'horizon
-    Résistance = plus haut sur l'horizon
-    """
+    prices = raw["Close"].values
 
-    subset = data.tail(min(horizon, len(data)))
+    mins = argrelextrema(
+        prices,
+        np.less,
+        order=5
+    )[0]
 
-    support = subset["Close"].min()
-    resistance = subset["Close"].max()
+    maxs = argrelextrema(
+        prices,
+        np.greater,
+        order=5
+    )[0]
 
-    return support, resistance
+    support = (
+        float(prices[mins][-1])
+        if len(mins)
+        else np.nan
+    )
 
-
-support_20, resistance_20 = get_support_resistance(df, 20)
-support_60, resistance_60 = get_support_resistance(df, 60)
-support_200, resistance_200 = get_support_resistance(df, 200)
-
-# Niveaux de référence principaux
-support = support_60
-resistance = resistance_60
+    resistance = (
+        float(prices[maxs][-1])
+        if len(maxs)
+        else np.nan
+    )
 
     # ======================================================
     # Onglets
@@ -253,39 +257,8 @@ resistance = resistance_60
         k[2].metric("6M", f"{r6:.2f}%")
         k[3].metric("1Y", f"{r12:.2f}%")
 
-        st.subheader("Niveaux Techniques")
-
-niv1, niv2, niv3 = st.columns(3)
-
-with niv1:
-    st.metric(
-        "Support 20j",
-        f"{support_20:.2f}"
-    )
-    st.metric(
-        "Résistance 20j",
-        f"{resistance_20:.2f}"
-    )
-
-with niv2:
-    st.metric(
-        "Support 60j",
-        f"{support_60:.2f}"
-    )
-    st.metric(
-        "Résistance 60j",
-        f"{resistance_60:.2f}"
-    )
-
-with niv3:
-    st.metric(
-        "Support 200j",
-        f"{support_200:.2f}"
-    )
-    st.metric(
-        "Résistance 200j",
-        f"{resistance_200:.2f}"
-    )
+        st.write(f"Support : {support:.2f}")
+        st.write(f"Résistance : {resistance:.2f}")
 
         gauge = go.Figure(
             go.Indicator(
