@@ -266,7 +266,7 @@ if uploaded:
 
         c1, c2, c3, c4, c5 = st.columns(5)
 
-        c1.metric("Cours", f"{last['Close'\]:.2f}")
+       c1.metric("Cours", f"{last['Close'\]:.2f}")
         c2.metric("RSI", f"{last['RSI'\]:.2f}")
         c3.metric("Score", f"{score}/100")
         c4.metric("YTD", f"{ytd:.2f}%")
