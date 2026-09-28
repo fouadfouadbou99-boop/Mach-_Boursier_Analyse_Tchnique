@@ -255,7 +255,10 @@ if uploaded:
         k[0].metric("1M", f"{r1:.2f}%")
         k[1].metric("3M", f"{r3:.2f}%")
         k[2].metric("6M", f"{r6:.2f}%")
-        k[3].metric("1Y", f"{r12:.2f}%")
+        k[3].metric(
+    "1Y",
+    "Historique insuffisant" if pd.isna(r12) else f"{r12:.2f}%"
+)
 
         st.write(f"Support : {support:.2f}")
         st.write(f"Résistance : {resistance:.2f}")
